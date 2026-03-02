@@ -71,7 +71,15 @@ export function Sidebar({
         >
           {currentDirectory || 'No directory selected'}
         </div>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onBrowse}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={(e) => {
+            e.stopPropagation();
+            onBrowse();
+          }}
+        >
           <FolderOpen className="h-4 w-4" />
         </Button>
       </div>
@@ -97,7 +105,14 @@ export function Sidebar({
           <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground">
             <HardDrive className="h-8 w-8 opacity-50" />
             <p className="text-sm">Select a directory to browse</p>
-            <Button variant="outline" size="sm" onClick={onBrowse}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                onBrowse();
+              }}
+            >
               Browse...
             </Button>
           </div>

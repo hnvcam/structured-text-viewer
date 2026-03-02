@@ -143,7 +143,7 @@ function createWindow(): void {
       height: 32,
     },
     webPreferences: {
-      preload: path.join(__dirname, '../preload/preload.mjs'),
+      preload: path.join(__dirname, '../../dist-electron/preload/preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -178,11 +178,15 @@ function createWindow(): void {
 
 // IPC Handlers
 ipcMain.handle('app:select-directory', async () => {
-  const result = await dialog.showOpenDialog(mainWindow!, {
+  if (!mainWindow) {
+    return null;
+  }
+  
+  const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
     title: 'Select Directory to Scan',
   });
-  
+
   if (!result.canceled && result.filePaths.length > 0) {
     const dirPath = result.filePaths[0];
     addRecentDirectory(dirPath);

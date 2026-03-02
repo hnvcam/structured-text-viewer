@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "A beautiful local Markdown & Mermaid file explorer and viewer",
   "main": "dist-electron/main/main.js",
-  "type": "module",
   "author": "Structured Text Viewer <support@structured-text-viewer.local>",
   "license": "MIT",
   "scripts": {

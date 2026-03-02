@@ -79,29 +79,33 @@ export function TreeView({
   onExpandStateChange,
 }: TreeViewProps) {
   const treeRef = useRef<TreeApi<TreeNode>>(null);
-  const [internalExpandedState, setInternalExpandedState] = useState<Record<string, boolean>>({});
+  const prevExpandedStateRef = useRef<Record<string, boolean>>({});
 
-  // Initialize with provided expanded state
-  useEffect(() => {
-    setInternalExpandedState(expandedState);
-  }, [expandedState]);
-
-  // Sync expanded state with tree
+  // Sync expanded state with tree (only when it actually changes)
   useEffect(() => {
     const tree = treeRef.current;
     if (!tree) return;
 
-    Object.entries(internalExpandedState).forEach(([id, isOpen]) => {
-      const node = tree.get(id);
-      if (node && node.data.type === 'folder') {
-        if (isOpen) {
-          node.open();
-        } else {
-          node.close();
+    // Check if expanded state actually changed
+    const prevExpanded = prevExpandedStateRef.current;
+    const hasChanges = Object.keys(expandedState).some(
+      key => prevExpanded[key] !== expandedState[key]
+    );
+
+    if (hasChanges) {
+      Object.entries(expandedState).forEach(([id, isOpen]) => {
+        const node = tree.get(id);
+        if (node && node.data.type === 'folder') {
+          if (isOpen && !node.isOpen) {
+            node.open();
+          } else if (!isOpen && node.isOpen) {
+            node.close();
+          }
         }
-      }
-    });
-  }, [internalExpandedState]);
+      });
+      prevExpandedStateRef.current = { ...expandedState };
+    }
+  }, [expandedState]);
 
   const handleSelect = useCallback(
     (selection: NodeApi<TreeNode>[]) => {
@@ -124,12 +128,11 @@ export function TreeView({
       if (!node || node.data.type !== 'folder') return;
 
       const isOpen = node.isOpen;
-      const newExpandedState = { ...internalExpandedState };
+      const newExpandedState = { ...expandedState };
       newExpandedState[id] = !isOpen;
-      setInternalExpandedState(newExpandedState);
       onExpandStateChange(newExpandedState);
     },
-    [internalExpandedState, onExpandStateChange]
+    [expandedState, onExpandStateChange]
   );
 
   // Select the current file in tree when it changes

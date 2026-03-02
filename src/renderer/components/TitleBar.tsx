@@ -24,7 +24,10 @@ export function TitleBar({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={onToggleSidebar}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSidebar();
+          }}
           title="Toggle Sidebar (Ctrl+B)"
         >
           <Menu className="h-4 w-4" />
@@ -33,7 +36,10 @@ export function TitleBar({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={onBrowseDirectory}
+          onClick={(e) => {
+            e.stopPropagation();
+            onBrowseDirectory();
+          }}
           title="Browse Directory (Ctrl+O)"
         >
           <FolderOpen className="h-4 w-4" />
@@ -49,7 +55,10 @@ export function TitleBar({
           variant="ghost"
           size="icon"
           className="h-7 w-7"
-          onClick={onToggleTheme}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleTheme();
+          }}
           title={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
         >
           {theme === 'light' ? (
@@ -63,7 +72,10 @@ export function TitleBar({
             variant="ghost"
             size="icon"
             className="h-7 w-7 rounded-l-none"
-            onClick={() => window.close()}
+            onClick={(e) => {
+              e.stopPropagation();
+              window.close();
+            }}
             title="Close"
           >
             <svg className="h-3 w-3" viewBox="0 0 12 12">

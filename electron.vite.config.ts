@@ -8,11 +8,12 @@ export default defineConfig({
       outDir: 'dist-electron/main',
       lib: {
         entry: 'electron/main.ts',
-        formats: ['es'],
+        formats: ['cjs'],
       },
       rollupOptions: {
         output: {
-          format: 'es',
+          format: 'cjs',
+          entryFileNames: 'main.js',
         },
       },
     },
@@ -28,11 +29,12 @@ export default defineConfig({
       outDir: 'dist-electron/preload',
       lib: {
         entry: 'electron/preload.ts',
-        formats: ['es'],
+        formats: ['cjs'],
       },
       rollupOptions: {
         output: {
-          format: 'es',
+          format: 'cjs',
+          entryFileNames: 'preload.js',
         },
       },
     },
