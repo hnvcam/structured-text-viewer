@@ -2,7 +2,7 @@ import { Tree, NodeApi, TreeApi } from 'react-arborist';
 import { FileText, FileCode, ChevronRight, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FileTreeItem } from '@/types';
-import { useCallback, useRef } from 'react';
+import { useCallback, useRef, useState, useEffect } from 'react';
 
 interface TreeViewProps {
   items: FileTreeItem[];
@@ -79,16 +79,36 @@ export function TreeView({
   onExpandStateChange,
 }: TreeViewProps) {
   const treeRef = useRef<TreeApi<TreeNode>>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [treeHeight, setTreeHeight] = useState(600);
 
-  console.log('[TREE] TreeView render with', items.length, 'items:', items.map(i => i.name));
-  console.log('[TREE] expandedState:', expandedState);
+  // Update tree height when container resizes
+  useEffect(() => {
+    const updateHeight = () => {
+      if (containerRef.current) {
+        setTreeHeight(containerRef.current.clientHeight);
+      }
+    };
+
+    updateHeight();
+    
+    // Use ResizeObserver if available, otherwise fallback to window resize
+    if (typeof ResizeObserver !== 'undefined') {
+      const observer = new ResizeObserver(updateHeight);
+      if (containerRef.current) {
+        observer.observe(containerRef.current);
+      }
+      return () => observer.disconnect();
+    } else {
+      window.addEventListener('resize', updateHeight);
+      return () => window.removeEventListener('resize', updateHeight);
+    }
+  }, []);
 
   const handleSelect = useCallback(
     (selection: NodeApi<TreeNode>[]) => {
-      console.log('[TREE] handleSelect called with', selection.length, 'items');
       if (selection.length > 0) {
         const node = selection[0];
-        console.log('[TREE] Selected node:', node.data.name, 'type:', node.data.type);
         if (node && node.data.type !== 'folder') {
           onSelectFile(node.data.path, node.data.type as 'markdown' | 'mermaid');
         }
@@ -99,25 +119,16 @@ export function TreeView({
 
   const handleToggle = useCallback(
     (id: string) => {
-      console.log('[TREE] handleToggle called for:', id);
       const tree = treeRef.current;
-      if (!tree) {
-        console.log('[TREE] treeRef is null');
-        return;
-      }
+      if (!tree) return;
 
       const node = tree.get(id);
-      console.log('[TREE] Toggle node:', node?.data.name, 'isOpen:', node?.isOpen);
       
-      if (!node || node.data.type !== 'folder') {
-        console.log('[TREE] Not a folder, ignoring');
-        return;
-      }
+      if (!node || node.data.type !== 'folder') return;
 
       const isOpen = node.isOpen;
       const newExpandedState = { ...expandedState };
       newExpandedState[id] = !isOpen;
-      console.log('[TREE] New expanded state:', newExpandedState);
       
       onExpandStateChange(newExpandedState);
     },
@@ -145,11 +156,12 @@ export function TreeView({
   }
 
   return (
-    <div className="h-full w-full">
+    <div ref={containerRef} className="h-full w-full">
       <Tree<TreeNode>
         ref={treeRef}
         data={items}
         width="100%"
+        height={treeHeight}
         rowHeight={28}
         indent={16}
         openIds={new Set(Object.keys(expandedState).filter(id => expandedState[id]))}

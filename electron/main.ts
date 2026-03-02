@@ -83,24 +83,15 @@ function setExpandedState(state: Record<string, boolean>): void {
 }
 
 function scanDirectory(dirPath: string): FileTreeItem[] {
-  console.log('[SCAN] Starting scan of directory:', dirPath);
   const result: FileTreeItem[] = [];
 
   try {
-    // Check if directory exists and is accessible
     if (!fs.existsSync(dirPath)) {
       console.error('[SCAN] Directory does not exist:', dirPath);
       return result;
     }
 
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    console.log('[SCAN] Found', entries.length, 'entries in', dirPath);
-    console.log('[SCAN] All entries:', entries.map(e => ({ 
-      name: e.name, 
-      isFile: e.isFile(), 
-      isDirectory: e.isDirectory(),
-      isSymbolicLink: e.isSymbolicLink ? e.isSymbolicLink() : 'N/A'
-    })));
 
     // First add directories
     for (const entry of entries) {
@@ -115,30 +106,17 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
         });
       }
     }
-    console.log('[SCAN] Found', result.length, 'directories');
 
     // Then add files (.md and .mmd only)
-    let fileCount = 0;
     for (const entry of entries) {
       const fileName = entry.name;
       const lowerName = fileName.toLowerCase();
       const ext = path.extname(fileName).toLowerCase();
       
-      console.log('[SCAN] Entry:', fileName, {
-        isFile: entry.isFile(),
-        isDirectory: entry.isDirectory(),
-        isSymbolicLink: entry.isSymbolicLink ? entry.isSymbolicLink() : 'N/A',
-        ext: ext,
-        endsWithMd: lowerName.endsWith('.md'),
-        endsWithMmd: lowerName.endsWith('.mmd')
-      });
-      
       if (entry.isFile()) {
-        // Check for .md and .mmd extensions (case-insensitive)
         if (lowerName.endsWith('.md') || lowerName.endsWith('.mmd')) {
           const fullPath = path.join(dirPath, fileName);
           
-          // Verify file is readable
           try {
             fs.accessSync(fullPath, fs.constants.R_OK);
             result.push({
@@ -147,17 +125,12 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
               type: ext === '.md' ? 'markdown' : 'mermaid',
               path: fullPath,
             });
-            fileCount++;
-            console.log('[SCAN] Added file:', fileName, 'type:', ext === '.md' ? 'markdown' : 'mermaid');
           } catch (accessError) {
             console.error('[SCAN] Cannot access file:', fullPath, accessError);
           }
         }
       }
     }
-    console.log('[SCAN] Found', fileCount, 'markdown/mermaid files');
-    console.log('[SCAN] Total result:', result.length, 'items');
-    console.log('[SCAN] Result items:', result.map(r => ({ name: r.name, type: r.type })));
   } catch (error) {
     console.error('[SCAN] Failed to scan directory:', dirPath, error);
   }
@@ -221,9 +194,7 @@ function createWindow(): void {
 
 // IPC Handlers
 ipcMain.handle('app:select-directory', async () => {
-  console.log('[IPC] app:select-directory called');
   if (!mainWindow) {
-    console.error('[IPC] mainWindow is null');
     return null;
   }
   
@@ -231,11 +202,9 @@ ipcMain.handle('app:select-directory', async () => {
     properties: ['openDirectory'],
     title: 'Select Directory to Scan',
   });
-  console.log('[IPC] Directory dialog result:', result);
 
   if (!result.canceled && result.filePaths.length > 0) {
     const dirPath = result.filePaths[0];
-    console.log('[IPC] Selected directory:', dirPath);
     addRecentDirectory(dirPath);
     setLastOpenedDirectory(dirPath);
     return dirPath;
@@ -273,17 +242,11 @@ ipcMain.handle('file:get-stats', async (_, filePath: string): Promise<{ size: nu
 });
 
 ipcMain.handle('file:scan-directory', async (_, dirPath: string): Promise<FileTreeItem[]> => {
-  console.log('[IPC] file:scan-directory called for:', dirPath);
-  const result = scanDirectory(dirPath);
-  console.log('[IPC] file:scan-directory returning', result.length, 'items');
-  return result;
+  return scanDirectory(dirPath);
 });
 
 ipcMain.handle('file:scan-subdirectory', async (_, dirPath: string): Promise<FileTreeItem[]> => {
-  console.log('[IPC] file:scan-subdirectory called for:', dirPath);
-  const result = scanDirectory(dirPath);
-  console.log('[IPC] file:scan-subdirectory returning', result.length, 'items');
-  return result;
+  return scanDirectory(dirPath);
 });
 
 ipcMain.handle('shell:open-external', async (_, url: string) => {
@@ -295,7 +258,6 @@ ipcMain.handle('store:get-expanded-state', () => {
 });
 
 ipcMain.handle('store:set-expanded-state', (_, state: Record<string, boolean>) => {
-  console.log('[STORE] setExpandedState called with:', state);
   setExpandedState(state);
 });
 

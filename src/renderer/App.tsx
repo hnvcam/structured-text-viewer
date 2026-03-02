@@ -38,72 +38,72 @@ function App() {
   // Load last directory on mount
   useEffect(() => {
     const loadLastDirectory = async () => {
-      console.log('[APP] Loading last directory on mount');
       try {
         const lastDir = await window.electronAPI.getLastDirectory();
-        console.log('[APP] Last directory from store:', lastDir);
         const expanded = await window.electronAPI.getExpandedState();
-        console.log('[APP] Expanded state from store:', expanded);
-        
+
         if (lastDir) {
-          console.log('[APP] Scanning last directory:', lastDir);
           setCurrentDirectory(lastDir);
           const items = await window.electronAPI.scanDirectory(lastDir);
-          console.log('[APP] Initial scan returned', items.length, 'items:', items);
           setTreeItems(items);
-          // Mark root as scanned
           scannedDirsRef.current.add(lastDir);
-          
-          // Set expanded state (will trigger scans via handleExpandStateChange effect)
+
+          // Scan expanded folders
           if (expanded && Object.keys(expanded).length > 0) {
-            setExpandedState(expanded);
-            prevExpandedStateRef.current = { ...expanded };
-            
-            // Scan expanded folders that are direct children of root
             const expandedDirs = Object.entries(expanded)
               .filter(([_, v]) => v)
               .map(([k]) => k);
-            
-            console.log('[APP] Will scan expanded folders:', expandedDirs);
-            
+
+            // Clone tree for modification
+            const cloneTree = (items: FileTreeItem[]): FileTreeItem[] => {
+              return items.map(item => ({
+                ...item,
+                children: item.children ? cloneTree(item.children) : [],
+              }));
+            };
+            let newItems = cloneTree(items);
+
+            // Scan each expanded folder and add children
             for (const dirPath of expandedDirs) {
               if (!scannedDirsRef.current.has(dirPath)) {
-                console.log('[APP] Scanning expanded directory from store:', dirPath);
                 try {
-                  const items = await window.electronAPI.scanDirectory(dirPath);
-                  console.log('[APP] Expanded dir scan returned', items.length, 'items:', items);
+                  const scanItems = await window.electronAPI.scanDirectory(dirPath);
                   
-                  setTreeItems(prevItems => {
-                    const newItems = JSON.parse(JSON.stringify(prevItems));
+                  if (scanItems.length > 0) {
                     const normalizePath = (p: string) => p.replace(/\\/g, '/').toLowerCase();
                     const normalizedTarget = normalizePath(dirPath);
                     
-                    const addToTree = (tree: any[], targetPath: string, children: any[]): boolean => {
+                    const addToTree = (tree: FileTreeItem[], targetPath: string, children: FileTreeItem[]): boolean => {
                       for (const item of tree) {
                         if (normalizePath(item.path) === targetPath) {
                           item.children = children;
                           return true;
                         }
-                        if (item.children?.length > 0) {
+                        if (item.children && item.children.length > 0) {
                           if (addToTree(item.children, targetPath, children)) return true;
                         }
                       }
                       return false;
                     };
-                    
-                    addToTree(newItems, normalizedTarget, items);
-                    scannedDirsRef.current.add(dirPath);
-                    return newItems;
-                  });
+
+                    const found = addToTree(newItems, normalizedTarget, scanItems);
+                    if (found) {
+                      scannedDirsRef.current.add(dirPath);
+                    }
+                  }
                 } catch (error) {
-                  console.error('[APP] Failed to scan expanded subdirectory:', error);
+                  console.error('Failed to scan subdirectory:', error);
                 }
               }
             }
+
+            setTreeItems(newItems);
+            setExpandedState(expanded);
+            prevExpandedStateRef.current = { ...expanded };
           }
         }
       } catch (error) {
-        console.error('[APP] Failed to load last directory:', error);
+        console.error('Failed to load last directory:', error);
       }
     };
 
@@ -112,26 +112,20 @@ function App() {
 
   // Handle directory browsing
   const handleBrowseDirectory = useCallback(async () => {
-    console.log('[APP] Browse button clicked');
     try {
-      console.log('[APP] Calling selectDirectory...');
       const dirPath = await window.electronAPI.selectDirectory();
-      console.log('[APP] selectDirectory returned:', dirPath);
       if (dirPath) {
-        console.log('[APP] Setting current directory to:', dirPath);
         setCurrentDirectory(dirPath);
         setSelectedFile(null);
         setFileContent(null);
         setFileError(null);
         setFileStats(null);
 
-        console.log('[APP] Scanning directory:', dirPath);
         const items = await window.electronAPI.scanDirectory(dirPath);
-        console.log('[APP] Scan returned', items.length, 'items:', items);
         setTreeItems(items);
       }
     } catch (error) {
-      console.error('[APP] Failed to browse directory:', error);
+      console.error('Failed to browse directory:', error);
     }
   }, []);
 
@@ -175,61 +169,53 @@ function App() {
 
   // Handle expanded state change
   const handleExpandStateChange = useCallback(async (state: Record<string, boolean>) => {
-    console.log('[APP] handleExpandStateChange called with:', state);
-    console.log('[APP] Previous expanded state (ref):', prevExpandedStateRef.current);
-    
-    // Find newly expanded folders (in new state but not in previous state)
     const newlyExpanded = Object.entries(state).filter(
       ([id, expanded]) => expanded && !prevExpandedStateRef.current[id]
     );
-    
-    console.log('[APP] Newly expanded folders:', newlyExpanded);
-    
-    // Update state and ref
+
     setExpandedState(state);
     prevExpandedStateRef.current = { ...state };
     await window.electronAPI.setExpandedState(state);
-    
-    // Scan each newly expanded folder
+
     for (const [dirPath] of newlyExpanded) {
       if (!scannedDirsRef.current.has(dirPath)) {
-        console.log('[APP] Scanning newly expanded directory:', dirPath);
         try {
           const items = await window.electronAPI.scanDirectory(dirPath);
-          console.log('[APP] Subdirectory scan returned', items.length, 'items:', items);
           
-          // Add to tree - find parent and set children
-          setTreeItems(prevItems => {
-            const newItems = JSON.parse(JSON.stringify(prevItems));
-            
-            // Normalize path for comparison (Windows can use \ or /)
-            const normalizePath = (p: string) => p.replace(/\\/g, '/').toLowerCase();
-            const normalizedTarget = normalizePath(dirPath);
-            
-            // Find the folder in the tree (could be nested)
-            const addToTree = (tree: any[], targetPath: string, children: any[]): boolean => {
-              for (const item of tree) {
-                const itemPath = normalizePath(item.path);
-                if (itemPath === targetPath) {
-                  item.children = children;
-                  console.log('[TREE] Found match and set children:', children.length);
-                  return true;
+          if (items.length > 0) {
+            setTreeItems(prevItems => {
+              const cloneTree = (items: FileTreeItem[]): FileTreeItem[] => {
+                return items.map(item => ({
+                  ...item,
+                  children: item.children ? cloneTree(item.children) : [],
+                }));
+              };
+              const newItems = cloneTree(prevItems);
+              const normalizePath = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+              const normalizedTarget = normalizePath(dirPath);
+              
+              const addToTree = (tree: FileTreeItem[], targetPath: string, children: FileTreeItem[]): boolean => {
+                for (const item of tree) {
+                  if (normalizePath(item.path) === targetPath) {
+                    item.children = children;
+                    return true;
+                  }
+                  if (item.children && item.children.length > 0) {
+                    if (addToTree(item.children, targetPath, children)) return true;
+                  }
                 }
-                if (item.children && item.children.length > 0) {
-                  if (addToTree(item.children, targetPath, children)) return true;
-                }
-              }
-              return false;
-            };
-            
-            const found = addToTree(newItems, normalizedTarget, items);
-            console.log('[APP] Added children to', dirPath, 'found:', found);
-            
+                return false;
+              };
+              
+              addToTree(newItems, normalizedTarget, items);
+              scannedDirsRef.current.add(dirPath);
+              return newItems;
+            });
+          } else {
             scannedDirsRef.current.add(dirPath);
-            return newItems;
-          });
+          }
         } catch (error) {
-          console.error('[APP] Failed to scan subdirectory:', error);
+          console.error('Failed to scan subdirectory:', error);
         }
       }
     }

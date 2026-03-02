@@ -64,7 +64,7 @@ export function Sidebar({
       />
 
       {/* Sidebar header */}
-      <div className="flex h-10 items-center justify-between border-b px-3">
+      <div className="flex h-10 flex-shrink-0 items-center justify-between border-b px-3">
         <div
           className="flex-1 truncate text-xs text-muted-foreground"
           title={currentDirectory || undefined}
@@ -74,7 +74,7 @@ export function Sidebar({
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7"
+          className="h-7 w-7 flex-shrink-0"
           onClick={(e) => {
             e.stopPropagation();
             onBrowse();
@@ -85,39 +85,41 @@ export function Sidebar({
       </div>
 
       {/* Tree view */}
-      <ScrollArea className="flex-1">
-        {currentDirectory ? (
-          treeItems.length > 0 ? (
-            <TreeView
-              items={treeItems}
-              selectedFile={selectedFile}
-              onSelectFile={onSelectFile}
-              expandedState={expandedState}
-              onExpandStateChange={onExpandStateChange}
-            />
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-full w-full">
+          {currentDirectory ? (
+            treeItems.length > 0 ? (
+              <TreeView
+                items={treeItems}
+                selectedFile={selectedFile}
+                onSelectFile={onSelectFile}
+                expandedState={expandedState}
+                onExpandStateChange={onExpandStateChange}
+              />
+            ) : (
+              <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground">
+                <HardDrive className="h-8 w-8 opacity-50" />
+                <p className="text-sm">No .md or .mmd files found</p>
+              </div>
+            )
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground">
               <HardDrive className="h-8 w-8 opacity-50" />
-              <p className="text-sm">No .md or .mmd files found</p>
+              <p className="text-sm">Select a directory to browse</p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onBrowse();
+                }}
+              >
+                Browse...
+              </Button>
             </div>
-          )
-        ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground">
-            <HardDrive className="h-8 w-8 opacity-50" />
-            <p className="text-sm">Select a directory to browse</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={(e) => {
-                e.stopPropagation();
-                onBrowse();
-              }}
-            >
-              Browse...
-            </Button>
-          </div>
-        )}
-      </ScrollArea>
+          )}
+        </ScrollArea>
+      </div>
     </div>
   );
 }
