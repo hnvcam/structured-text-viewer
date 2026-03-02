@@ -44,10 +44,6 @@ function App() {
         const expanded = await window.electronAPI.getExpandedState();
         console.log('[APP] Expanded state from store:', expanded);
         
-        if (expanded) {
-          setExpandedState(expanded);
-        }
-
         if (lastDir) {
           console.log('[APP] Scanning last directory:', lastDir);
           setCurrentDirectory(lastDir);
@@ -56,6 +52,61 @@ function App() {
           setTreeItems(items);
           // Mark root as scanned
           scannedDirsRef.current.add(lastDir);
+          
+          // If we have expanded state, scan all expanded subdirectories
+          if (expanded && Object.keys(expanded).length > 0) {
+            setExpandedState(expanded);
+            // Scan all expanded folders (sorted by depth, shallow first)
+            const sortedExpanded = Object.entries(expanded)
+              .filter(([_, v]) => v)
+              .sort((a, b) => a[0].split(/[\\/]/).length - b[0].split(/[\\/]/).length);
+            
+            console.log('[APP] Sorted expanded folders to scan:', sortedExpanded);
+            
+            for (const [dirPath] of sortedExpanded) {
+              if (!scannedDirsRef.current.has(dirPath)) {
+                console.log('[APP] Scanning expanded directory from store:', dirPath);
+                try {
+                  const items = await window.electronAPI.scanDirectory(dirPath);
+                  console.log('[APP] Expanded dir scan returned', items.length, 'items:', items);
+                  
+                  // Add to tree - find parent and set children
+                  setTreeItems(prevItems => {
+                    const newItems = JSON.parse(JSON.stringify(prevItems));
+                    
+                    // Normalize path for comparison (Windows can use \ or /)
+                    const normalizePath = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+                    const normalizedTarget = normalizePath(dirPath);
+                    
+                    // Find the folder in the tree (could be nested)
+                    const addToTree = (tree: any[], targetPath: string, children: any[]): boolean => {
+                      for (const item of tree) {
+                        const itemPath = normalizePath(item.path);
+                        console.log('[TREE] Checking path:', itemPath, 'against target:', targetPath);
+                        if (itemPath === targetPath) {
+                          item.children = children;
+                          console.log('[TREE] Found match, setting children:', children.length);
+                          return true;
+                        }
+                        if (item.children && item.children.length > 0) {
+                          if (addToTree(item.children, targetPath, children)) return true;
+                        }
+                      }
+                      return false;
+                    };
+                    
+                    const found = addToTree(newItems, normalizedTarget, items);
+                    console.log('[APP] Added children to', dirPath, 'found:', found);
+                    
+                    scannedDirsRef.current.add(dirPath);
+                    return newItems;
+                  });
+                } catch (error) {
+                  console.error('[APP] Failed to scan expanded subdirectory:', error);
+                }
+              }
+            }
+          }
         }
       } catch (error) {
         console.error('[APP] Failed to load last directory:', error);
