@@ -1,7 +1,7 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import mermaid from 'mermaid';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
@@ -13,47 +13,93 @@ interface MarkdownViewerProps {
   onZoomChange: (zoom: number) => void;
 }
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'default',
-  securityLevel: 'loose',
-});
-
 export function MarkdownViewer({ content, zoom, onZoomChange }: MarkdownViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mermaidId, setMermaidId] = useState(0);
+  const isMountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const renderMermaid = async () => {
+  // Initialize mermaid
+  useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+    });
+  }, []);
+
+  // Reset mount state and abort pending renders on content change
+  useEffect(() => {
+    isMountedRef.current = true;
+    
+    // Abort any pending renders
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+    
+    return () => {
+      isMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      // Clear all mermaid elements on unmount
+      const elements = containerRef.current?.querySelectorAll('.mermaid');
+      if (elements) {
+        elements.forEach(el => {
+          el.removeAttribute('data-processed');
+          const pre = el.parentElement;
+          if (pre) {
+            const code = pre.querySelector('code');
+            if (code && code.textContent) {
+              el.textContent = code.textContent;
+            }
+          }
+        });
+      }
+    };
+  }, [content]);
+
+  const renderMermaid = useCallback(async () => {
+    const abortController = abortControllerRef.current;
+    if (!isMountedRef.current || !abortController) return;
+
     const elements = containerRef.current?.querySelectorAll('.mermaid');
     if (!elements || elements.length === 0) return;
 
-    try {
-      for (let i = 0; i < elements.length; i++) {
-        const element = elements[i] as HTMLElement;
-        if (element.getAttribute('data-processed') === 'true') continue;
+    for (let i = 0; i < elements.length; i++) {
+      if (!isMountedRef.current || abortController.signal.aborted) break;
 
-        const graphDefinition = element.textContent?.trim() || '';
-        if (!graphDefinition) continue;
+      const element = elements[i] as HTMLElement;
+      if (element.getAttribute('data-processed') === 'true') continue;
 
-        try {
-          const { svg } = await mermaid.render(`mermaid-${mermaidId}-${i}`, graphDefinition);
-          element.innerHTML = svg;
-          element.setAttribute('data-processed', 'true');
-        } catch (error) {
-          console.error('Mermaid render error:', error);
-          element.innerHTML = `<div class="text-destructive text-sm">Failed to render diagram</div>`;
-        }
+      const graphDefinition = element.textContent?.trim() || '';
+      if (!graphDefinition) continue;
+
+      try {
+        const renderId = `mermaid-md-${mermaidId}-${i}-${Date.now()}`;
+        const { svg } = await mermaid.render(renderId, graphDefinition);
+        
+        if (!isMountedRef.current || abortController.signal.aborted) return;
+        
+        element.innerHTML = svg;
+        element.setAttribute('data-processed', 'true');
+      } catch (error) {
+        if (!isMountedRef.current || abortController.signal.aborted) return;
+        console.error('Mermaid render error:', error);
+        element.innerHTML = `<div class="text-destructive text-sm">Failed to render diagram</div>`;
       }
-      setMermaidId((prev) => prev + elements.length);
-    } catch (error) {
-      console.error('Mermaid processing error:', error);
     }
-  };
+    
+    if (isMountedRef.current && !abortController.signal.aborted) {
+      setMermaidId(prev => prev + elements.length);
+    }
+  }, [mermaidId]);
 
   useEffect(() => {
-    const timer = setTimeout(renderMermaid, 100);
+    const timer = setTimeout(renderMermaid, 50);
     return () => clearTimeout(timer);
-  }, [content]);
+  }, [renderMermaid]);
 
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey) {

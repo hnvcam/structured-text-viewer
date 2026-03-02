@@ -91,11 +91,12 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
     // First add directories
     for (const entry of entries) {
       if (entry.isDirectory() && !entry.name.startsWith('.')) {
+        const fullPath = path.join(dirPath, entry.name);
         result.push({
-          id: path.join(dirPath, entry.name),
+          id: fullPath,
           name: entry.name,
           type: 'folder',
-          path: path.join(dirPath, entry.name),
+          path: fullPath,
           children: [],
         });
       }
@@ -103,15 +104,27 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
 
     // Then add files (.md and .mmd only)
     for (const entry of entries) {
-      if (entry.isFile()) {
-        const ext = path.extname(entry.name).toLowerCase();
-        if (ext === '.md' || ext === '.mmd') {
+      if (!entry.isFile()) continue;
+      
+      const fileName = entry.name;
+      const lowerName = fileName.toLowerCase();
+      
+      // Check for .md and .mmd extensions (case-insensitive)
+      if (lowerName.endsWith('.md') || lowerName.endsWith('.mmd')) {
+        const ext = path.extname(fileName).toLowerCase();
+        const fullPath = path.join(dirPath, fileName);
+        
+        // Verify file is readable
+        try {
+          fs.accessSync(fullPath, fs.constants.R_OK);
           result.push({
-            id: path.join(dirPath, entry.name),
-            name: entry.name,
+            id: fullPath,
+            name: fileName,
             type: ext === '.md' ? 'markdown' : 'mermaid',
-            path: path.join(dirPath, entry.name),
+            path: fullPath,
           });
+        } catch {
+          // Skip files that can't be read
         }
       }
     }

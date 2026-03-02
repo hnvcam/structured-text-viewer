@@ -7,12 +7,6 @@ interface MermaidViewerProps {
   content: string;
 }
 
-mermaid.initialize({
-  startOnLoad: false,
-  theme: 'default',
-  securityLevel: 'loose',
-});
-
 export function MermaidViewer({ content }: MermaidViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -22,24 +16,63 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
   const [svgSize, setSvgSize] = useState({ width: 0, height: 0 });
+  const isMountedRef = useRef(true);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Initialize mermaid and setup cleanup
+  useEffect(() => {
+    mermaid.initialize({
+      startOnLoad: false,
+      theme: 'default',
+      securityLevel: 'loose',
+    });
+
+    isMountedRef.current = true;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
+    return () => {
+      isMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+      if (contentRef.current) {
+        contentRef.current.innerHTML = '';
+      }
+    };
+  }, [content]);
 
   const renderDiagram = useCallback(async () => {
-    try {
-      const { svg } = await mermaid.render(`mermaid-diagram-${Date.now()}`, content);
-      if (contentRef.current) {
-        contentRef.current.innerHTML = svg;
-        const svgElement = contentRef.current.querySelector('svg');
-        if (svgElement) {
-          svgRef.current = svgElement as SVGSVGElement;
-          const bbox = svgElement.getBoundingClientRect();
-          setSvgSize({ width: bbox.width, height: bbox.height });
+    const abortController = abortControllerRef.current;
+    if (!isMountedRef.current || !abortController || !contentRef.current) return;
 
-          // Reset position and scale
-          setScale(1);
-          setPosition({ x: 0, y: 0 });
-        }
+    // Clear previous content
+    contentRef.current.innerHTML = '';
+
+    // Small delay to allow DOM to clear
+    await new Promise(resolve => setTimeout(resolve, 10));
+
+    if (!isMountedRef.current || abortController.signal.aborted) return;
+
+    try {
+      const uniqueId = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const { svg } = await mermaid.render(uniqueId, content);
+
+      if (!isMountedRef.current || abortController.signal.aborted) return;
+
+      contentRef.current.innerHTML = svg;
+      const svgElement = contentRef.current.querySelector('svg');
+      if (svgElement) {
+        svgRef.current = svgElement as SVGSVGElement;
+        const bbox = svgElement.getBoundingClientRect();
+        setSvgSize({ width: bbox.width, height: bbox.height });
+        setScale(1);
+        setPosition({ x: 0, y: 0 });
       }
     } catch (error) {
+      if (!isMountedRef.current || abortController.signal.aborted) return;
       console.error('Mermaid render error:', error);
       if (contentRef.current) {
         contentRef.current.innerHTML = `
@@ -55,7 +88,8 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
   }, [content]);
 
   useEffect(() => {
-    renderDiagram();
+    const timer = setTimeout(renderDiagram, 50);
+    return () => clearTimeout(timer);
   }, [renderDiagram]);
 
   // Setup non-passive wheel listener for zoom

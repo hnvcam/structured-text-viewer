@@ -36,15 +36,24 @@ export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange 
     );
   }
 
+  // Use unique key based on file path to force complete remount when switching files
+  const viewerKey = filePath;
+
   if (fileType === 'mermaid') {
-    return <MermaidViewer content={content} />;
+    return (
+      <div key={viewerKey} className="h-full">
+        <MermaidViewer content={content} />
+      </div>
+    );
   }
 
   return (
-    <MarkdownViewer
-      content={content}
-      zoom={zoom}
-      onZoomChange={onZoomChange}
-    />
+    <div key={viewerKey} className="h-full">
+      <MarkdownViewer
+        content={content}
+        zoom={zoom}
+        onZoomChange={onZoomChange}
+      />
+    </div>
   );
 }
