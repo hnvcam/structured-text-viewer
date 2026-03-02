@@ -83,10 +83,18 @@ function setExpandedState(state: Record<string, boolean>): void {
 }
 
 function scanDirectory(dirPath: string): FileTreeItem[] {
+  console.log('[SCAN] Starting scan of directory:', dirPath);
   const result: FileTreeItem[] = [];
 
   try {
+    // Check if directory exists and is accessible
+    if (!fs.existsSync(dirPath)) {
+      console.error('[SCAN] Directory does not exist:', dirPath);
+      return result;
+    }
+
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    console.log('[SCAN] Found', entries.length, 'entries in', dirPath);
 
     // First add directories
     for (const entry of entries) {
@@ -101,17 +109,28 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
         });
       }
     }
+    console.log('[SCAN] Found', result.length, 'directories');
 
     // Then add files (.md and .mmd only)
+    let fileCount = 0;
     for (const entry of entries) {
-      if (!entry.isFile()) continue;
+      if (!entry.isFile()) {
+        console.log('[SCAN] Skipping non-file entry:', entry.name, 'type:', {
+          isFile: entry.isFile(),
+          isDirectory: entry.isDirectory(),
+          isSymbolicLink: entry.isSymbolicLink ? entry.isSymbolicLink() : 'N/A'
+        });
+        continue;
+      }
       
       const fileName = entry.name;
       const lowerName = fileName.toLowerCase();
+      const ext = path.extname(fileName).toLowerCase();
+      
+      console.log('[SCAN] Processing file:', fileName, 'extension:', ext);
       
       // Check for .md and .mmd extensions (case-insensitive)
       if (lowerName.endsWith('.md') || lowerName.endsWith('.mmd')) {
-        const ext = path.extname(fileName).toLowerCase();
         const fullPath = path.join(dirPath, fileName);
         
         // Verify file is readable
@@ -123,13 +142,19 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
             type: ext === '.md' ? 'markdown' : 'mermaid',
             path: fullPath,
           });
-        } catch {
-          // Skip files that can't be read
+          fileCount++;
+          console.log('[SCAN] Added file:', fileName, 'type:', ext === '.md' ? 'markdown' : 'mermaid');
+        } catch (accessError) {
+          console.error('[SCAN] Cannot access file:', fullPath, accessError);
         }
+      } else {
+        console.log('[SCAN] Skipping file with unsupported extension:', fileName);
       }
     }
+    console.log('[SCAN] Found', fileCount, 'markdown/mermaid files');
+    console.log('[SCAN] Total result:', result.length, 'items');
   } catch (error) {
-    console.error('Failed to scan directory:', error);
+    console.error('[SCAN] Failed to scan directory:', dirPath, error);
   }
 
   return result;
@@ -191,7 +216,9 @@ function createWindow(): void {
 
 // IPC Handlers
 ipcMain.handle('app:select-directory', async () => {
+  console.log('[IPC] app:select-directory called');
   if (!mainWindow) {
+    console.error('[IPC] mainWindow is null');
     return null;
   }
   
@@ -199,9 +226,11 @@ ipcMain.handle('app:select-directory', async () => {
     properties: ['openDirectory'],
     title: 'Select Directory to Scan',
   });
+  console.log('[IPC] Directory dialog result:', result);
 
   if (!result.canceled && result.filePaths.length > 0) {
     const dirPath = result.filePaths[0];
+    console.log('[IPC] Selected directory:', dirPath);
     addRecentDirectory(dirPath);
     setLastOpenedDirectory(dirPath);
     return dirPath;
@@ -239,7 +268,10 @@ ipcMain.handle('file:get-stats', async (_, filePath: string): Promise<{ size: nu
 });
 
 ipcMain.handle('file:scan-directory', async (_, dirPath: string): Promise<FileTreeItem[]> => {
-  return scanDirectory(dirPath);
+  console.log('[IPC] file:scan-directory called for:', dirPath);
+  const result = scanDirectory(dirPath);
+  console.log('[IPC] file:scan-directory returning', result.length, 'items');
+  return result;
 });
 
 ipcMain.handle('file:scan-subdirectory', async (_, dirPath: string): Promise<FileTreeItem[]> => {

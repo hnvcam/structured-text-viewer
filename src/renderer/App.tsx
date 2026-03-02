@@ -36,21 +36,26 @@ function App() {
   // Load last directory on mount
   useEffect(() => {
     const loadLastDirectory = async () => {
+      console.log('[APP] Loading last directory on mount');
       try {
         const lastDir = await window.electronAPI.getLastDirectory();
+        console.log('[APP] Last directory from store:', lastDir);
         const expanded = await window.electronAPI.getExpandedState();
+        console.log('[APP] Expanded state from store:', expanded);
         
         if (expanded) {
           setExpandedState(expanded);
         }
 
         if (lastDir) {
+          console.log('[APP] Scanning last directory:', lastDir);
           setCurrentDirectory(lastDir);
           const items = await window.electronAPI.scanDirectory(lastDir);
+          console.log('[APP] Initial scan returned', items.length, 'items:', items);
           setTreeItems(items);
         }
       } catch (error) {
-        console.error('Failed to load last directory:', error);
+        console.error('[APP] Failed to load last directory:', error);
       }
     };
 
@@ -59,20 +64,26 @@ function App() {
 
   // Handle directory browsing
   const handleBrowseDirectory = useCallback(async () => {
+    console.log('[APP] Browse button clicked');
     try {
+      console.log('[APP] Calling selectDirectory...');
       const dirPath = await window.electronAPI.selectDirectory();
+      console.log('[APP] selectDirectory returned:', dirPath);
       if (dirPath) {
+        console.log('[APP] Setting current directory to:', dirPath);
         setCurrentDirectory(dirPath);
         setSelectedFile(null);
         setFileContent(null);
         setFileError(null);
         setFileStats(null);
 
+        console.log('[APP] Scanning directory:', dirPath);
         const items = await window.electronAPI.scanDirectory(dirPath);
+        console.log('[APP] Scan returned', items.length, 'items:', items);
         setTreeItems(items);
       }
     } catch (error) {
-      console.error('Failed to browse directory:', error);
+      console.error('[APP] Failed to browse directory:', error);
     }
   }, []);
 
