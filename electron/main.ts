@@ -82,7 +82,7 @@ function setExpandedState(state: Record<string, boolean>): void {
   saveStore(store);
 }
 
-async function scanDirectory(dirPath: string): Promise<FileTreeItem[]> {
+function scanDirectory(dirPath: string): FileTreeItem[] {
   console.log('[SCAN] Starting scan of directory:', dirPath);
   const result: FileTreeItem[] = [];
 
@@ -93,8 +93,7 @@ async function scanDirectory(dirPath: string): Promise<FileTreeItem[]> {
       return result;
     }
 
-    // Use promises API for better Windows compatibility
-    const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     console.log('[SCAN] Found', entries.length, 'entries in', dirPath);
     console.log('[SCAN] All entries:', entries.map(e => ({ 
       name: e.name, 
@@ -141,7 +140,7 @@ async function scanDirectory(dirPath: string): Promise<FileTreeItem[]> {
           
           // Verify file is readable
           try {
-            await fs.promises.access(fullPath, fs.constants.R_OK);
+            fs.accessSync(fullPath, fs.constants.R_OK);
             result.push({
               id: fullPath,
               name: fileName,
@@ -275,14 +274,14 @@ ipcMain.handle('file:get-stats', async (_, filePath: string): Promise<{ size: nu
 
 ipcMain.handle('file:scan-directory', async (_, dirPath: string): Promise<FileTreeItem[]> => {
   console.log('[IPC] file:scan-directory called for:', dirPath);
-  const result = await scanDirectory(dirPath);
+  const result = scanDirectory(dirPath);
   console.log('[IPC] file:scan-directory returning', result.length, 'items');
   return result;
 });
 
 ipcMain.handle('file:scan-subdirectory', async (_, dirPath: string): Promise<FileTreeItem[]> => {
   console.log('[IPC] file:scan-subdirectory called for:', dirPath);
-  const result = await scanDirectory(dirPath);
+  const result = scanDirectory(dirPath);
   console.log('[IPC] file:scan-subdirectory returning', result.length, 'items');
   return result;
 });
