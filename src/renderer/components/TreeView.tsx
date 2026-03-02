@@ -118,6 +118,7 @@ export function TreeView({
       const newExpandedState = { ...expandedState };
       newExpandedState[id] = !isOpen;
       console.log('[TREE] New expanded state:', newExpandedState);
+      
       onExpandStateChange(newExpandedState);
     },
     [expandedState, onExpandStateChange]

@@ -82,7 +82,7 @@ function setExpandedState(state: Record<string, boolean>): void {
   saveStore(store);
 }
 
-function scanDirectory(dirPath: string): FileTreeItem[] {
+async function scanDirectory(dirPath: string): Promise<FileTreeItem[]> {
   console.log('[SCAN] Starting scan of directory:', dirPath);
   const result: FileTreeItem[] = [];
 
@@ -93,7 +93,8 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
       return result;
     }
 
-    const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+    // Use promises API for better Windows compatibility
+    const entries = await fs.promises.readdir(dirPath, { withFileTypes: true });
     console.log('[SCAN] Found', entries.length, 'entries in', dirPath);
     console.log('[SCAN] All entries:', entries.map(e => ({ 
       name: e.name, 
@@ -140,7 +141,7 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
           
           // Verify file is readable
           try {
-            fs.accessSync(fullPath, fs.constants.R_OK);
+            await fs.promises.access(fullPath, fs.constants.R_OK);
             result.push({
               id: fullPath,
               name: fileName,
@@ -274,13 +275,16 @@ ipcMain.handle('file:get-stats', async (_, filePath: string): Promise<{ size: nu
 
 ipcMain.handle('file:scan-directory', async (_, dirPath: string): Promise<FileTreeItem[]> => {
   console.log('[IPC] file:scan-directory called for:', dirPath);
-  const result = scanDirectory(dirPath);
+  const result = await scanDirectory(dirPath);
   console.log('[IPC] file:scan-directory returning', result.length, 'items');
   return result;
 });
 
 ipcMain.handle('file:scan-subdirectory', async (_, dirPath: string): Promise<FileTreeItem[]> => {
-  return scanDirectory(dirPath);
+  console.log('[IPC] file:scan-subdirectory called for:', dirPath);
+  const result = await scanDirectory(dirPath);
+  console.log('[IPC] file:scan-subdirectory returning', result.length, 'items');
+  return result;
 });
 
 ipcMain.handle('shell:open-external', async (_, url: string) => {

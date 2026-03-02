@@ -27,6 +27,7 @@ function App() {
   const [fileStats, setFileStats] = useState<{ size: number; modified: string } | null>(null);
   const [treeItems, setTreeItems] = useState<FileTreeItem[]>([]);
   const [expandedState, setExpandedState] = useState<Record<string, boolean>>({});
+  const [scannedDirs, setScannedDirs] = useState<Set<string>>(new Set());
 
   // UI state
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -130,7 +131,40 @@ function App() {
     console.log('[APP] handleExpandStateChange called with:', state);
     setExpandedState(state);
     await window.electronAPI.setExpandedState(state);
-  }, []);
+    
+    // Find newly expanded folders and scan them
+    const newlyExpanded = Object.entries(state).filter(
+      ([id, expanded]) => expanded && !expandedState[id]
+    );
+    
+    for (const [dirPath] of newlyExpanded) {
+      if (!scannedDirs.has(dirPath)) {
+        console.log('[APP] Scanning newly expanded directory:', dirPath);
+        try {
+          const items = await window.electronAPI.scanDirectory(dirPath);
+          console.log('[APP] Subdirectory scan returned', items.length, 'items');
+          
+          // Add scanned items as children in the tree
+          setTreeItems(prev => {
+            const newItems = [...prev];
+            // Find the parent folder and add children
+            const parentIndex = newItems.findIndex(item => item.path === dirPath);
+            if (parentIndex !== -1) {
+              newItems[parentIndex] = {
+                ...newItems[parentIndex],
+                children: items,
+              };
+            }
+            // Mark as scanned
+            setScannedDirs(prev => new Set(prev).add(dirPath));
+            return newItems;
+          });
+        } catch (error) {
+          console.error('[APP] Failed to scan subdirectory:', error);
+        }
+      }
+    }
+  }, [expandedState, scannedDirs]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
