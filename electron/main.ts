@@ -84,10 +84,10 @@ function setExpandedState(state: Record<string, boolean>): void {
 
 function scanDirectory(dirPath: string): FileTreeItem[] {
   const result: FileTreeItem[] = [];
-  
+
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-    
+
     // First add directories
     for (const entry of entries) {
       if (entry.isDirectory() && !entry.name.startsWith('.')) {
@@ -100,7 +100,7 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
         });
       }
     }
-    
+
     // Then add files (.md and .mmd only)
     for (const entry of entries) {
       if (entry.isFile()) {
@@ -118,7 +118,7 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
   } catch (error) {
     console.error('Failed to scan directory:', error);
   }
-  
+
   return result;
 }
 

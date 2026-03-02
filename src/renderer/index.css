@@ -78,7 +78,11 @@
 
 /* Markdown styles */
 .markdown-content {
-  @apply prose prose-sm dark:prose-invert max-w-none;
+  @apply prose dark:prose-invert max-w-none;
+}
+
+.markdown-content {
+  font-size: inherit;
 }
 
 .markdown-content h1 {

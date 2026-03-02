@@ -15,6 +15,7 @@ mermaid.initialize({
 
 export function MermaidViewer({ content }: MermaidViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -25,14 +26,14 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
   const renderDiagram = useCallback(async () => {
     try {
       const { svg } = await mermaid.render(`mermaid-diagram-${Date.now()}`, content);
-      if (containerRef.current) {
-        containerRef.current.innerHTML = svg;
-        const svgElement = containerRef.current.querySelector('svg');
+      if (contentRef.current) {
+        contentRef.current.innerHTML = svg;
+        const svgElement = contentRef.current.querySelector('svg');
         if (svgElement) {
           svgRef.current = svgElement as SVGSVGElement;
           const bbox = svgElement.getBoundingClientRect();
           setSvgSize({ width: bbox.width, height: bbox.height });
-          
+
           // Reset position and scale
           setScale(1);
           setPosition({ x: 0, y: 0 });
@@ -40,8 +41,8 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
       }
     } catch (error) {
       console.error('Mermaid render error:', error);
-      if (containerRef.current) {
-        containerRef.current.innerHTML = `
+      if (contentRef.current) {
+        contentRef.current.innerHTML = `
           <div class="flex h-full items-center justify-center text-destructive">
             <div class="text-center">
               <p class="font-semibold">Failed to render diagram</p>
@@ -57,27 +58,23 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
     renderDiagram();
   }, [renderDiagram]);
 
-  const fitToScreen = useCallback(() => {
-    if (!containerRef.current || svgSize.width === 0) return;
+  // Setup non-passive wheel listener for zoom
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
 
-    const containerRect = containerRef.current.getBoundingClientRect();
-    const scaleX = (containerRect.width - 40) / svgSize.width;
-    const scaleY = (containerRect.height - 40) / svgSize.height;
-    const newScale = Math.min(scaleX, scaleY, 1);
-
-    setScale(newScale);
-    setPosition({ x: 0, y: 0 });
-  }, [svgSize]);
-
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
+    const handleWheel = (e: WheelEvent) => {
       e.preventDefault();
       const delta = e.deltaY > 0 ? -0.1 : 0.1;
-      const newScale = Math.max(0.1, Math.min(5, scale + delta));
-      setScale(newScale);
-    },
-    [scale]
-  );
+      setScale((prev) => Math.max(0.1, Math.min(5, prev + delta)));
+    };
+
+    container.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', handleWheel);
+    };
+  }, []);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     if (e.button === 0) {
@@ -101,6 +98,18 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
   const handleMouseUp = useCallback(() => {
     setIsDragging(false);
   }, []);
+
+  const fitToScreen = useCallback(() => {
+    if (!containerRef.current || svgSize.width === 0) return;
+
+    const containerRect = containerRef.current.getBoundingClientRect();
+    const scaleX = (containerRect.width - 40) / svgSize.width;
+    const scaleY = (containerRect.height - 40) / svgSize.height;
+    const newScale = Math.min(scaleX, scaleY, 1);
+
+    setScale(newScale);
+    setPosition({ x: 0, y: 0 });
+  }, [svgSize]);
 
   const handleZoomIn = () => setScale((prev) => Math.min(5, prev + 0.2));
   const handleZoomOut = () => setScale((prev) => Math.max(0.1, prev - 0.2));
@@ -160,7 +169,6 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
       <div
         ref={containerRef}
         className="flex-1 overflow-hidden bg-card"
-        onWheel={handleWheel}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
@@ -168,6 +176,7 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
         style={{ cursor: isDragging ? 'grabbing' : 'grab' }}
       >
         <div
+          ref={contentRef}
           className="mermaid-container h-full w-full"
           style={{
             transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,

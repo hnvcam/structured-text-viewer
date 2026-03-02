@@ -58,6 +58,7 @@ export function MarkdownViewer({ content, zoom, onZoomChange }: MarkdownViewerPr
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey) {
       e.preventDefault();
+      e.stopPropagation();
       const delta = e.deltaY > 0 ? -1 : 1;
       const newZoom = Math.max(10, Math.min(32, zoom + delta));
       onZoomChange(newZoom);
