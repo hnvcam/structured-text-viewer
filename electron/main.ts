@@ -95,6 +95,12 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
 
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
     console.log('[SCAN] Found', entries.length, 'entries in', dirPath);
+    console.log('[SCAN] All entries:', entries.map(e => ({ 
+      name: e.name, 
+      isFile: e.isFile(), 
+      isDirectory: e.isDirectory(),
+      isSymbolicLink: e.isSymbolicLink ? e.isSymbolicLink() : 'N/A'
+    })));
 
     // First add directories
     for (const entry of entries) {
@@ -114,45 +120,44 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
     // Then add files (.md and .mmd only)
     let fileCount = 0;
     for (const entry of entries) {
-      if (!entry.isFile()) {
-        console.log('[SCAN] Skipping non-file entry:', entry.name, 'type:', {
-          isFile: entry.isFile(),
-          isDirectory: entry.isDirectory(),
-          isSymbolicLink: entry.isSymbolicLink ? entry.isSymbolicLink() : 'N/A'
-        });
-        continue;
-      }
-      
       const fileName = entry.name;
       const lowerName = fileName.toLowerCase();
       const ext = path.extname(fileName).toLowerCase();
       
-      console.log('[SCAN] Processing file:', fileName, 'extension:', ext);
+      console.log('[SCAN] Entry:', fileName, {
+        isFile: entry.isFile(),
+        isDirectory: entry.isDirectory(),
+        isSymbolicLink: entry.isSymbolicLink ? entry.isSymbolicLink() : 'N/A',
+        ext: ext,
+        endsWithMd: lowerName.endsWith('.md'),
+        endsWithMmd: lowerName.endsWith('.mmd')
+      });
       
-      // Check for .md and .mmd extensions (case-insensitive)
-      if (lowerName.endsWith('.md') || lowerName.endsWith('.mmd')) {
-        const fullPath = path.join(dirPath, fileName);
-        
-        // Verify file is readable
-        try {
-          fs.accessSync(fullPath, fs.constants.R_OK);
-          result.push({
-            id: fullPath,
-            name: fileName,
-            type: ext === '.md' ? 'markdown' : 'mermaid',
-            path: fullPath,
-          });
-          fileCount++;
-          console.log('[SCAN] Added file:', fileName, 'type:', ext === '.md' ? 'markdown' : 'mermaid');
-        } catch (accessError) {
-          console.error('[SCAN] Cannot access file:', fullPath, accessError);
+      if (entry.isFile()) {
+        // Check for .md and .mmd extensions (case-insensitive)
+        if (lowerName.endsWith('.md') || lowerName.endsWith('.mmd')) {
+          const fullPath = path.join(dirPath, fileName);
+          
+          // Verify file is readable
+          try {
+            fs.accessSync(fullPath, fs.constants.R_OK);
+            result.push({
+              id: fullPath,
+              name: fileName,
+              type: ext === '.md' ? 'markdown' : 'mermaid',
+              path: fullPath,
+            });
+            fileCount++;
+            console.log('[SCAN] Added file:', fileName, 'type:', ext === '.md' ? 'markdown' : 'mermaid');
+          } catch (accessError) {
+            console.error('[SCAN] Cannot access file:', fullPath, accessError);
+          }
         }
-      } else {
-        console.log('[SCAN] Skipping file with unsupported extension:', fileName);
       }
     }
     console.log('[SCAN] Found', fileCount, 'markdown/mermaid files');
     console.log('[SCAN] Total result:', result.length, 'items');
+    console.log('[SCAN] Result items:', result.map(r => ({ name: r.name, type: r.type })));
   } catch (error) {
     console.error('[SCAN] Failed to scan directory:', dirPath, error);
   }
@@ -287,6 +292,7 @@ ipcMain.handle('store:get-expanded-state', () => {
 });
 
 ipcMain.handle('store:set-expanded-state', (_, state: Record<string, boolean>) => {
+  console.log('[STORE] setExpandedState called with:', state);
   setExpandedState(state);
 });
 

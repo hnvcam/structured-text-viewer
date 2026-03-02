@@ -127,6 +127,7 @@ function App() {
 
   // Handle expanded state change
   const handleExpandStateChange = useCallback(async (state: Record<string, boolean>) => {
+    console.log('[APP] handleExpandStateChange called with:', state);
     setExpandedState(state);
     await window.electronAPI.setExpandedState(state);
   }, []);

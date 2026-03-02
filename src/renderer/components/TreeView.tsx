@@ -80,10 +80,15 @@ export function TreeView({
 }: TreeViewProps) {
   const treeRef = useRef<TreeApi<TreeNode>>(null);
 
+  console.log('[TREE] TreeView render with', items.length, 'items:', items.map(i => i.name));
+  console.log('[TREE] expandedState:', expandedState);
+
   const handleSelect = useCallback(
     (selection: NodeApi<TreeNode>[]) => {
+      console.log('[TREE] handleSelect called with', selection.length, 'items');
       if (selection.length > 0) {
         const node = selection[0];
+        console.log('[TREE] Selected node:', node.data.name, 'type:', node.data.type);
         if (node && node.data.type !== 'folder') {
           onSelectFile(node.data.path, node.data.type as 'markdown' | 'mermaid');
         }
@@ -94,15 +99,25 @@ export function TreeView({
 
   const handleToggle = useCallback(
     (id: string) => {
+      console.log('[TREE] handleToggle called for:', id);
       const tree = treeRef.current;
-      if (!tree) return;
+      if (!tree) {
+        console.log('[TREE] treeRef is null');
+        return;
+      }
 
       const node = tree.get(id);
-      if (!node || node.data.type !== 'folder') return;
+      console.log('[TREE] Toggle node:', node?.data.name, 'isOpen:', node?.isOpen);
+      
+      if (!node || node.data.type !== 'folder') {
+        console.log('[TREE] Not a folder, ignoring');
+        return;
+      }
 
       const isOpen = node.isOpen;
       const newExpandedState = { ...expandedState };
       newExpandedState[id] = !isOpen;
+      console.log('[TREE] New expanded state:', newExpandedState);
       onExpandStateChange(newExpandedState);
     },
     [expandedState, onExpandStateChange]
