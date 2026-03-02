@@ -2,7 +2,7 @@ import { Tree, NodeApi, TreeApi } from 'react-arborist';
 import { FileText, FileCode, ChevronRight, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FileTreeItem } from '@/types';
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useCallback, useRef } from 'react';
 
 interface TreeViewProps {
   items: FileTreeItem[];
@@ -79,33 +79,6 @@ export function TreeView({
   onExpandStateChange,
 }: TreeViewProps) {
   const treeRef = useRef<TreeApi<TreeNode>>(null);
-  const prevExpandedStateRef = useRef<Record<string, boolean>>({});
-
-  // Sync expanded state with tree (only when it actually changes)
-  useEffect(() => {
-    const tree = treeRef.current;
-    if (!tree) return;
-
-    // Check if expanded state actually changed
-    const prevExpanded = prevExpandedStateRef.current;
-    const hasChanges = Object.keys(expandedState).some(
-      key => prevExpanded[key] !== expandedState[key]
-    );
-
-    if (hasChanges) {
-      Object.entries(expandedState).forEach(([id, isOpen]) => {
-        const node = tree.get(id);
-        if (node && node.data.type === 'folder') {
-          if (isOpen && !node.isOpen) {
-            node.open();
-          } else if (!isOpen && node.isOpen) {
-            node.close();
-          }
-        }
-      });
-      prevExpandedStateRef.current = { ...expandedState };
-    }
-  }, [expandedState]);
 
   const handleSelect = useCallback(
     (selection: NodeApi<TreeNode>[]) => {
@@ -135,22 +108,25 @@ export function TreeView({
     [expandedState, onExpandStateChange]
   );
 
-  // Select the current file in tree when it changes
-  useEffect(() => {
+  // Select the current file in tree when it changes and expand parents
+  const hasExpandedParents = useRef(false);
+  if (treeRef.current && selectedFile && !hasExpandedParents.current) {
     const tree = treeRef.current;
-    if (tree && selectedFile) {
-      tree.select(selectedFile);
-      // Expand parent folders
-      let node = tree.get(selectedFile);
-      while (node && node.parent) {
-        const parent = node.parent;
-        if (parent && parent.data.type === 'folder') {
-          parent.open();
-        }
-        node = parent;
+    let node = tree.get(selectedFile);
+    while (node && node.parent) {
+      const parent = node.parent;
+      if (parent && parent.data.type === 'folder' && !parent.isOpen) {
+        parent.open();
       }
+      node = parent;
     }
-  }, [selectedFile]);
+    hasExpandedParents.current = true;
+  }
+
+  // Reset the ref when selectedFile changes
+  if (selectedFile === null) {
+    hasExpandedParents.current = false;
+  }
 
   return (
     <div className="h-full w-full">
@@ -160,6 +136,7 @@ export function TreeView({
         width="100%"
         rowHeight={28}
         indent={16}
+        openIds={new Set(Object.keys(expandedState).filter(id => expandedState[id]))}
         onSelect={handleSelect}
         onToggle={handleToggle}
       >
