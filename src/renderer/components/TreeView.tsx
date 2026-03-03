@@ -91,7 +91,7 @@ export function TreeView({
     };
 
     updateHeight();
-    
+
     // Use ResizeObserver if available, otherwise fallback to window resize
     if (typeof ResizeObserver !== 'undefined') {
       const observer = new ResizeObserver(updateHeight);
@@ -123,13 +123,12 @@ export function TreeView({
       if (!tree) return;
 
       const node = tree.get(id);
-      
+
       if (!node || node.data.type !== 'folder') return;
 
-      const isOpen = node.isOpen;
       const newExpandedState = { ...expandedState };
-      newExpandedState[id] = !isOpen;
-      
+      newExpandedState[id] = node.isOpen;
+
       onExpandStateChange(newExpandedState);
     },
     [expandedState, onExpandStateChange]
@@ -155,8 +154,27 @@ export function TreeView({
     hasExpandedParents.current = false;
   }
 
+  // keep the tree in sync with our external expandedState map
+  useEffect(() => {
+    const tree = treeRef.current;
+    if (!tree) return;
+
+    // iterate through every entry and open/close accordingly
+    for (const [id, isOpen] of Object.entries(expandedState)) {
+      const node = tree.get(id);
+      if (!node || node.data.type !== 'folder') continue;
+
+      if (isOpen && !node.isOpen) {
+        node.open();
+      } else if (!isOpen && node.isOpen) {
+        node.close();
+      }
+    }
+  }, [expandedState]);
+
   return (
-    <div ref={containerRef} className="h-full w-full">
+    <div ref={containerRef} className="flex-1 w/full">
+      {/* feed the filtered state to the tree initially, and keep it updated via effect */}
       <Tree<TreeNode>
         ref={treeRef}
         data={items}
@@ -164,7 +182,11 @@ export function TreeView({
         height={treeHeight}
         rowHeight={28}
         indent={16}
-        openIds={new Set(Object.keys(expandedState).filter(id => expandedState[id]))}
+        initialOpenState={
+          Object.fromEntries(
+            Object.entries(expandedState).filter(([, v]) => v)
+          )
+        }
         onSelect={handleSelect}
         onToggle={handleToggle}
       >

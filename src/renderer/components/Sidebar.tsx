@@ -85,8 +85,8 @@ export function Sidebar({
       </div>
 
       {/* Tree view */}
-      <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-full w-full">
+      <div className="flex-1 overflow-hidden flex flex-row">
+        <ScrollArea className="flex-1 min-h-0 flex flex-row">
           {currentDirectory ? (
             treeItems.length > 0 ? (
               <TreeView

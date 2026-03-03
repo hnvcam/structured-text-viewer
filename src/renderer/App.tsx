@@ -54,50 +54,11 @@ function App() {
               .filter(([_, v]) => v)
               .map(([k]) => k);
 
-            // Clone tree for modification
-            const cloneTree = (items: FileTreeItem[]): FileTreeItem[] => {
-              return items.map(item => ({
-                ...item,
-                children: item.children ? cloneTree(item.children) : [],
-              }));
-            };
-            let newItems = cloneTree(items);
-
             // Scan each expanded folder and add children
             for (const dirPath of expandedDirs) {
-              if (!scannedDirsRef.current.has(dirPath)) {
-                try {
-                  const scanItems = await window.electronAPI.scanDirectory(dirPath);
-                  
-                  if (scanItems.length > 0) {
-                    const normalizePath = (p: string) => p.replace(/\\/g, '/').toLowerCase();
-                    const normalizedTarget = normalizePath(dirPath);
-                    
-                    const addToTree = (tree: FileTreeItem[], targetPath: string, children: FileTreeItem[]): boolean => {
-                      for (const item of tree) {
-                        if (normalizePath(item.path) === targetPath) {
-                          item.children = children;
-                          return true;
-                        }
-                        if (item.children && item.children.length > 0) {
-                          if (addToTree(item.children, targetPath, children)) return true;
-                        }
-                      }
-                      return false;
-                    };
-
-                    const found = addToTree(newItems, normalizedTarget, scanItems);
-                    if (found) {
-                      scannedDirsRef.current.add(dirPath);
-                    }
-                  }
-                } catch (error) {
-                  console.error('Failed to scan subdirectory:', error);
-                }
-              }
+              await scanDirPath(dirPath);
             }
 
-            setTreeItems(newItems);
             setExpandedState(expanded);
             prevExpandedStateRef.current = { ...expanded };
           }
@@ -167,6 +128,52 @@ function App() {
     setZoom(DEFAULT_ZOOM);
   }, []);
 
+  const scanDirPath = useCallback(async (dirPath: string) => {
+    if (scannedDirsRef.current.has(dirPath)) {
+      console.log('Path', dirPath, 'has been scanned!');
+      return;
+    }
+    try {
+      const items = await window.electronAPI.scanDirectory(dirPath);
+
+      if (items.length > 0) {
+        setTreeItems(prevItems => {
+          const cloneTree = (items: FileTreeItem[]): FileTreeItem[] => {
+            return items.map(item => ({
+              ...item,
+              children: item.children ? cloneTree(item.children) : [],
+            }));
+          };
+          const newItems = cloneTree(prevItems);
+          const normalizePath = (p: string) => p.replace(/\\/g, '/').toLowerCase();
+          const normalizedTarget = normalizePath(dirPath);
+
+          const addToTree = (tree: FileTreeItem[], targetPath: string, children: FileTreeItem[]): boolean => {
+            for (const item of tree) {
+              if (normalizePath(item.path) === targetPath) {
+                item.children = children;
+                return true;
+              }
+              if (item.children && item.children.length > 0) {
+                if (addToTree(item.children, targetPath, children)) return true;
+              }
+            }
+            return false;
+          };
+
+          addToTree(newItems, normalizedTarget, items);
+          scannedDirsRef.current.add(dirPath);
+          return newItems;
+        });
+      } else {
+        scannedDirsRef.current.add(dirPath);
+      }
+    } catch (error) {
+      console.error('Failed to scan subdirectory:', error);
+    }
+
+  }, [])
+
   // Handle expanded state change
   const handleExpandStateChange = useCallback(async (state: Record<string, boolean>) => {
     const newlyExpanded = Object.entries(state).filter(
@@ -178,46 +185,7 @@ function App() {
     await window.electronAPI.setExpandedState(state);
 
     for (const [dirPath] of newlyExpanded) {
-      if (!scannedDirsRef.current.has(dirPath)) {
-        try {
-          const items = await window.electronAPI.scanDirectory(dirPath);
-          
-          if (items.length > 0) {
-            setTreeItems(prevItems => {
-              const cloneTree = (items: FileTreeItem[]): FileTreeItem[] => {
-                return items.map(item => ({
-                  ...item,
-                  children: item.children ? cloneTree(item.children) : [],
-                }));
-              };
-              const newItems = cloneTree(prevItems);
-              const normalizePath = (p: string) => p.replace(/\\/g, '/').toLowerCase();
-              const normalizedTarget = normalizePath(dirPath);
-              
-              const addToTree = (tree: FileTreeItem[], targetPath: string, children: FileTreeItem[]): boolean => {
-                for (const item of tree) {
-                  if (normalizePath(item.path) === targetPath) {
-                    item.children = children;
-                    return true;
-                  }
-                  if (item.children && item.children.length > 0) {
-                    if (addToTree(item.children, targetPath, children)) return true;
-                  }
-                }
-                return false;
-              };
-              
-              addToTree(newItems, normalizedTarget, items);
-              scannedDirsRef.current.add(dirPath);
-              return newItems;
-            });
-          } else {
-            scannedDirsRef.current.add(dirPath);
-          }
-        } catch (error) {
-          console.error('Failed to scan subdirectory:', error);
-        }
-      }
+      await scanDirPath(dirPath);
     }
   }, []);
 
