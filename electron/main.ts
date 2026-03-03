@@ -112,11 +112,11 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
       const fileName = entry.name;
       const lowerName = fileName.toLowerCase();
       const ext = path.extname(fileName).toLowerCase();
-      
+
       if (entry.isFile()) {
         if (lowerName.endsWith('.md') || lowerName.endsWith('.mmd')) {
           const fullPath = path.join(dirPath, fileName);
-          
+
           try {
             fs.accessSync(fullPath, fs.constants.R_OK);
             result.push({
@@ -147,6 +147,21 @@ interface FileTreeItem {
 }
 
 function createWindow(): void {
+  const logFile = path.join(app.getPath('userData'), 'debug.log');
+
+  fs.writeFileSync(
+    logFile,
+    `TIMESTAMP: ${new Date().toISOString()}\n`
+  );
+
+  const isDev = process.env.NODE_ENV === 'development' || !!process.env.VITE_DEV_SERVER_URL;
+
+  const preload = isDev ?
+    path.join(__dirname, '../../dist-electron/preload/preload.js') :
+    path.join(app.getAppPath(), 'dist-electron/preload/preload.js');
+
+  fs.appendFileSync(logFile, `preload: ${preload}\nexists: ${fs.existsSync(preload)}\n`);
+
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
@@ -159,30 +174,60 @@ function createWindow(): void {
       height: 32,
     },
     webPreferences: {
-      preload: path.join(__dirname, '../../dist-electron/preload/preload.js'),
+      preload,
       contextIsolation: true,
       nodeIntegration: false,
     },
     backgroundColor: '#18181b',
-    show: false,
   });
 
   // Load the app
   const devServerUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
-  const isDev = process.env.NODE_ENV === 'development' || !!process.env.VITE_DEV_SERVER_URL;
+
   if (isDev) {
     mainWindow.loadURL(devServerUrl);
     mainWindow.webContents.openDevTools();
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../../dist/index.html'));
+    const appPath = app.getAppPath();
+    const indexPath = path.join(appPath, 'dist/index.html');
+
+    fs.appendFileSync(
+      logFile,
+      `appPath: ${appPath}\nindexPath: ${indexPath}\nexists: ${fs.existsSync(indexPath)}\n`
+    );
+
+    mainWindow.loadFile(indexPath);
   }
 
+  mainWindow.webContents.on('did-finish-load', () => {
+    fs.appendFileSync(logFile, `\ndid-finish-load fired`);
+  });
+
+  mainWindow.webContents.on('dom-ready', () => {
+    fs.appendFileSync(logFile, `\ndom-ready fired`);
+  });
+
   mainWindow.once('ready-to-show', () => {
+    fs.appendFileSync(logFile, `\nready-to-show fired`);
     mainWindow?.show();
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  mainWindow.webContents.on('did-fail-load', (_, errorCode, errorDescription, validatedURL) => {
+    fs.appendFileSync(
+      logFile,
+      `\nFAIL: ${errorCode} | ${errorDescription} | ${validatedURL}`
+    );
+  });
+
+  mainWindow.webContents.on('console-message', (_, level, message) => {
+    fs.appendFileSync(
+      logFile,
+      `\nCONSOLE[${level}]: ${message}`
+    );
   });
 
   // Handle external links
@@ -197,7 +242,7 @@ ipcMain.handle('app:select-directory', async () => {
   if (!mainWindow) {
     return null;
   }
-  
+
   const result = await dialog.showOpenDialog(mainWindow, {
     properties: ['openDirectory'],
     title: 'Select Directory to Scan',
@@ -264,7 +309,7 @@ ipcMain.handle('store:set-expanded-state', (_, state: Record<string, boolean>) =
 // App lifecycle
 app.whenReady().then(() => {
   createWindow();
-  
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
