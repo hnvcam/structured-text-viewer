@@ -27,7 +27,6 @@ function App() {
   const [fileStats, setFileStats] = useState<{ size: number; modified: string } | null>(null);
   const [treeItems, setTreeItems] = useState<FileTreeItem[]>([]);
   const [expandedState, setExpandedState] = useState<Record<string, boolean>>({});
-  const scannedDirsRef = useRef<Set<string>>(new Set());
   const prevExpandedStateRef = useRef<Record<string, boolean>>({});
 
   // UI state
@@ -46,7 +45,6 @@ function App() {
           setCurrentDirectory(lastDir);
           const items = await window.electronAPI.scanDirectory(lastDir);
           setTreeItems(items);
-          scannedDirsRef.current.add(lastDir);
 
           // Scan expanded folders
           if (expanded && Object.keys(expanded).length > 0) {
@@ -129,10 +127,6 @@ function App() {
   }, []);
 
   const scanDirPath = useCallback(async (dirPath: string) => {
-    if (scannedDirsRef.current.has(dirPath)) {
-      console.log('Path', dirPath, 'has been scanned!');
-      return;
-    }
     try {
       const items = await window.electronAPI.scanDirectory(dirPath);
 
@@ -162,11 +156,8 @@ function App() {
           };
 
           addToTree(newItems, normalizedTarget, items);
-          scannedDirsRef.current.add(dirPath);
           return newItems;
         });
-      } else {
-        scannedDirsRef.current.add(dirPath);
       }
     } catch (error) {
       console.error('Failed to scan subdirectory:', error);
