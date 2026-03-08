@@ -5,7 +5,13 @@ const electroview = new Electroview({
   rpc: Electroview.defineRPC<AppRPC>({
     handlers: {
       requests: {},
-      messages: {},
+      messages: {
+        directorySelected: ({ dirPath }) => {
+          window.dispatchEvent(
+            new CustomEvent("directorySelected", { detail: { dirPath } })
+          );
+        },
+      },
     },
   }),
 });

@@ -1,5 +1,5 @@
 import { Tree, NodeApi, TreeApi } from 'react-arborist';
-import { FileText, FileCode, ChevronRight, FolderOpen } from 'lucide-react';
+import { FileText, FileCode, FileImage, ChevronRight, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FileTreeItem } from '@/types';
 import { useCallback, useRef, useState, useEffect } from 'react';
@@ -7,14 +7,14 @@ import { useCallback, useRef, useState, useEffect } from 'react';
 interface TreeViewProps {
   items: FileTreeItem[];
   selectedFile: string | null;
-  onSelectFile: (path: string, type: 'markdown' | 'mermaid') => void;
+  onSelectFile: (path: string, type: 'markdown' | 'mermaid' | 'svg') => void;
   expandedState: Record<string, boolean>;
   onExpandStateChange: (state: Record<string, boolean>) => void;
 }
 
 type TreeNode = FileTreeItem;
 
-function FileIcon({ type }: { type: 'folder' | 'markdown' | 'mermaid' }) {
+function FileIcon({ type }: { type: 'folder' | 'markdown' | 'mermaid' | 'svg' }) {
   switch (type) {
     case 'folder':
       return <FolderOpen className="h-4 w-4 text-yellow-500" />;
@@ -22,6 +22,8 @@ function FileIcon({ type }: { type: 'folder' | 'markdown' | 'mermaid' }) {
       return <FileText className="h-4 w-4 text-blue-500" />;
     case 'mermaid':
       return <FileCode className="h-4 w-4 text-purple-500" />;
+    case 'svg':
+      return <FileImage className="h-4 w-4 text-green-500" />;
   }
 }
 
@@ -110,7 +112,7 @@ export function TreeView({
       if (selection.length > 0) {
         const node = selection[0];
         if (node && node.data.type !== 'folder') {
-          onSelectFile(node.data.path, node.data.type as 'markdown' | 'mermaid');
+          onSelectFile(node.data.path, node.data.type as 'markdown' | 'mermaid' | 'svg');
         }
       }
     },

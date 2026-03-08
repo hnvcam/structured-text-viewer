@@ -12,7 +12,7 @@ interface SidebarProps {
   selectedFile: string | null;
   expandedState: Record<string, boolean>;
   onBrowse: () => void;
-  onSelectFile: (path: string, type: 'markdown' | 'mermaid') => void;
+  onSelectFile: (path: string, type: 'markdown' | 'mermaid' | 'svg') => void;
   onResize: (width: number) => void;
   onExpandStateChange: (state: Record<string, boolean>) => void;
 }

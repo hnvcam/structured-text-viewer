@@ -1,7 +1,7 @@
 export interface FileTreeItem {
   id: string;
   name: string;
-  type: 'folder' | 'markdown' | 'mermaid';
+  type: 'folder' | 'markdown' | 'mermaid' | 'svg';
   path: string;
   children?: FileTreeItem[];
 }
@@ -12,7 +12,7 @@ export interface FileStats {
   path: string;
 }
 
-export type FileType = 'markdown' | 'mermaid' | 'folder';
+export type FileType = 'markdown' | 'mermaid' | 'svg' | 'folder';
 
 export interface AppState {
   currentDirectory: string | null;

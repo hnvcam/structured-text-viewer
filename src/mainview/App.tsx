@@ -21,7 +21,7 @@ function App() {
   // App state
   const [currentDirectory, setCurrentDirectory] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [fileType, setFileType] = useState<'markdown' | 'mermaid' | null>(null);
+  const [fileType, setFileType] = useState<'markdown' | 'mermaid' | 'svg' | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [fileStats, setFileStats] = useState<{ size: number; modified: string } | null>(null);
@@ -68,27 +68,32 @@ function App() {
     loadLastDirectory();
   }, []);
 
-  // Handle directory browsing
-  const handleBrowseDirectory = useCallback(async () => {
-    try {
-      const dirPath = await rpc.request.selectDirectory({});
-      if (dirPath) {
-        setCurrentDirectory(dirPath);
-        setSelectedFile(null);
-        setFileContent(null);
-        setFileError(null);
-        setFileStats(null);
+  // Handle directory browsing — fire-and-forget to avoid RPC drop during dialog
+  const handleBrowseDirectory = useCallback(() => {
+    rpc.send.openDirectoryDialog({});
+  }, []);
 
-        const items = await rpc.request.scanDirectory({ dirPath });
-        setTreeItems(items);
-      }
-    } catch (error) {
-      console.error('Failed to browse directory:', error);
-    }
+  // Handle directory selected (pushed from bun after dialog closes)
+  useEffect(() => {
+    const handler = async (e: Event) => {
+      const { dirPath } = (e as CustomEvent<{ dirPath: string | null }>).detail;
+      if (!dirPath) return;
+      setCurrentDirectory(dirPath);
+      setSelectedFile(null);
+      setFileContent(null);
+      setFileError(null);
+      setFileStats(null);
+      setExpandedState({});
+      prevExpandedStateRef.current = {};
+      const items = await rpc.request.scanDirectory({ dirPath });
+      setTreeItems(items);
+    };
+    window.addEventListener("directorySelected", handler);
+    return () => window.removeEventListener("directorySelected", handler);
   }, []);
 
   // Handle file selection
-  const handleSelectFile = useCallback(async (path: string, type: 'markdown' | 'mermaid') => {
+  const handleSelectFile = useCallback(async (path: string, type: 'markdown' | 'mermaid' | 'svg') => {
     setSelectedFile(path);
     setFileType(type);
     setFileError(null);

@@ -110,14 +110,14 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
       const fileName = entry.name;
       const lowerName = fileName.toLowerCase();
       const ext = path.extname(fileName).toLowerCase();
-      if (entry.isFile() && (lowerName.endsWith(".md") || lowerName.endsWith(".mmd"))) {
+      if (entry.isFile() && (lowerName.endsWith(".md") || lowerName.endsWith(".mmd") || lowerName.endsWith(".svg"))) {
         const fullPath = path.join(dirPath, fileName);
         try {
           fs.accessSync(fullPath, fs.constants.R_OK);
           result.push({
             id: fullPath,
             name: fileName,
-            type: ext === ".md" ? "markdown" : "mermaid",
+            type: ext === ".md" ? "markdown" : ext === ".svg" ? "svg" : "mermaid",
             path: fullPath,
           });
         } catch {
@@ -135,20 +135,6 @@ const rpc = BrowserView.defineRPC<AppRPC>({
   maxRequestTime: 10000,
   handlers: {
     requests: {
-      selectDirectory: async () => {
-        const paths = await Utils.openFileDialog({
-          canChooseFiles: false,
-          canChooseDirectory: true,
-          allowsMultipleSelection: false,
-          allowedFileTypes: "*",
-        });
-        if (paths && paths.length > 0 && paths[0]) {
-          addRecentDirectory(paths[0]);
-          setLastOpenedDirectory(paths[0]);
-          return paths[0];
-        }
-        return null;
-      },
       getRecentDirectories: () => getRecentDirectories(),
       getLastDirectory: () => getLastOpenedDirectory(),
       readFile: ({ filePath }) => {
@@ -168,21 +154,32 @@ const rpc = BrowserView.defineRPC<AppRPC>({
         }
       },
       scanDirectory: ({ dirPath }) => scanDirectory(dirPath),
-      openExternal: ({ url }) => {
-        Utils.openExternal(url);
-      },
+      openExternal: ({ url }) => { Utils.openExternal(url); },
       getExpandedState: () => getExpandedState(),
-      setExpandedState: ({ state }) => {
-        setExpandedState(state);
+      setExpandedState: ({ state }) => { setExpandedState(state); },
+    },
+    messages: {
+      openDirectoryDialog: async () => {
+        const paths = await Utils.openFileDialog({
+          canChooseFiles: false,
+          canChooseDirectory: true,
+          allowsMultipleSelection: false,
+          allowedFileTypes: "*",
+        });
+        const dirPath = paths && paths.length > 0 && paths[0] ? paths[0] : null;
+        if (dirPath) {
+          addRecentDirectory(dirPath);
+          setLastOpenedDirectory(dirPath);
+        }
+        win.webview.rpc?.send.directorySelected({ dirPath });
       },
     },
-    messages: {},
   },
 });
 
 const url = await getMainViewUrl();
 
-new BrowserWindow({
+const win = new BrowserWindow({
   title: "Structured Text Viewer",
   frame: { x: 100, y: 100, width: 1400, height: 900 },
   url,
