@@ -9,8 +9,8 @@
     "dev:watch": "electrobun dev --watch",
     "dev:hmr": "concurrently \"bun run hmr\" \"bun run dev\"",
     "hmr": "vite --port 5173",
-    "build": "vite build && electrobun build",
-    "build:win": "vite build && electrobun build --targets=win-x64",
+    "build": "vite build && electrobun build --env=stable",
+    "build:win": "vite build && electrobun build --env=stable",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

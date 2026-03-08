@@ -186,6 +186,5 @@ new BrowserWindow({
   title: "Structured Text Viewer",
   frame: { x: 100, y: 100, width: 1400, height: 900 },
   url,
-  titleBarStyle: "hidden",
   rpc,
 });

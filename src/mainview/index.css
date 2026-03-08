@@ -168,11 +168,3 @@
   @apply flex items-center justify-center p-4;
 }
 
-/* Title bar styles */
-.titlebar {
-  -webkit-app-region: drag;
-}
-
-.titlebar button {
-  -webkit-app-region: no-drag;
-}

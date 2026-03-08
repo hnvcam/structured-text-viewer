@@ -33,7 +33,7 @@ tsconfig.json           — TS config (@/* → src/mainview/*)
 ```bash
 bun run dev          # vite build + electrobun dev
 bun run dev:hmr      # Vite HMR + electrobun dev concurrently
-bun run build:win    # vite build + electrobun build --targets=win-x64
+bun run build:win    # vite build + electrobun build --env=stable (produces installer)
 bun run typecheck    # tsc --noEmit
 ```
 
