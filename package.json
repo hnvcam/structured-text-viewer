@@ -2,16 +2,15 @@
   "name": "structured-text-viewer",
   "version": "1.0.0",
   "description": "A beautiful local Markdown & Mermaid file explorer and viewer",
-  "main": "dist-electron/main/main.js",
   "author": "Structured Text Viewer <support@structured-text-viewer.local>",
   "license": "MIT",
   "scripts": {
-    "dev": "electron-vite dev",
-    "build": "electron-vite build && electron-builder",
-    "build:win": "electron-vite build && electron-builder --win",
-    "build:mac": "electron-vite build && electron-builder --mac",
-    "build:linux": "electron-vite build && electron-builder --linux",
-    "preview": "electron-vite preview",
+    "dev": "vite build && electrobun dev",
+    "dev:watch": "electrobun dev --watch",
+    "dev:hmr": "concurrently \"bun run hmr\" \"bun run dev\"",
+    "hmr": "vite --port 5173",
+    "build": "vite build && electrobun build",
+    "build:win": "vite build && electrobun build --targets=win-x64",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -25,6 +24,7 @@
     "@tailwindcss/typography": "^0.5.15",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "electrobun": "^1.15.1",
     "lucide-react": "^0.468.0",
     "mermaid": "^11.4.1",
     "react": "^19.0.0",
@@ -36,73 +36,15 @@
     "tailwind-merge": "^2.6.0"
   },
   "devDependencies": {
-    "@electron/notarize": "^2.5.0",
-    "@types/node": "^22.10.2",
+    "@types/bun": "latest",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.2",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "electron": "^32.0.0",
-    "electron-builder": "^25.1.8",
-    "electron-vite": "^2.3.0",
+    "concurrently": "^9.1.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2",
-    "vite": "^5.4.11"
-  },
-  "build": {
-    "appId": "com.structured-text-viewer.app",
-    "productName": "Structured Text Viewer",
-    "directories": {
-      "output": "release"
-    },
-    "files": [
-      "dist-electron/**/*",
-      "dist/**/*"
-    ],
-    "mac": {
-      "category": "public.app-category.developer-tools",
-      "icon": "build/icon.icns",
-      "target": [
-        {
-          "target": "dmg",
-          "arch": ["universal"]
-        }
-      ],
-      "hardenedRuntime": true,
-      "gatekeeperAssess": false,
-      "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
-    },
-    "win": {
-      "icon": "build/icon.ico",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true
-    },
-    "linux": {
-      "icon": "build/icon.png",
-      "category": "Development",
-      "target": [
-        {
-          "target": "AppImage",
-          "arch": ["x64"]
-        },
-        {
-          "target": "deb",
-          "arch": ["x64"]
-        }
-      ]
-    },
-    "publish": null
+    "vite": "^6.0.3"
   }
 }

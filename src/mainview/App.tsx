@@ -7,7 +7,7 @@ import { Separator } from './components/ui/separator';
 import { useTheme } from './hooks/useTheme';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
 import { FileTreeItem } from './types';
-import './index.css';
+import { rpc } from './rpcClient';
 
 const DEFAULT_ZOOM = 16;
 const MIN_ZOOM = 10;
@@ -38,12 +38,12 @@ function App() {
   useEffect(() => {
     const loadLastDirectory = async () => {
       try {
-        const lastDir = await window.electronAPI.getLastDirectory();
-        const expanded = await window.electronAPI.getExpandedState();
+        const lastDir = await rpc.request.getLastDirectory({});
+        const expanded = await rpc.request.getExpandedState({});
 
         if (lastDir) {
           setCurrentDirectory(lastDir);
-          const items = await window.electronAPI.scanDirectory(lastDir);
+          const items = await rpc.request.scanDirectory({ dirPath: lastDir });
           setTreeItems(items);
 
           // Scan expanded folders
@@ -52,7 +52,6 @@ function App() {
               .filter(([_, v]) => v)
               .map(([k]) => k);
 
-            // Scan each expanded folder and add children
             for (const dirPath of expandedDirs) {
               await scanDirPath(dirPath);
             }
@@ -72,7 +71,7 @@ function App() {
   // Handle directory browsing
   const handleBrowseDirectory = useCallback(async () => {
     try {
-      const dirPath = await window.electronAPI.selectDirectory();
+      const dirPath = await rpc.request.selectDirectory({});
       if (dirPath) {
         setCurrentDirectory(dirPath);
         setSelectedFile(null);
@@ -80,7 +79,7 @@ function App() {
         setFileError(null);
         setFileStats(null);
 
-        const items = await window.electronAPI.scanDirectory(dirPath);
+        const items = await rpc.request.scanDirectory({ dirPath });
         setTreeItems(items);
       }
     } catch (error) {
@@ -95,7 +94,7 @@ function App() {
     setFileError(null);
 
     try {
-      const result = await window.electronAPI.readFile(path);
+      const result = await rpc.request.readFile({ filePath: path });
       if (result.error) {
         setFileError(result.error);
         setFileContent(null);
@@ -103,7 +102,7 @@ function App() {
         setFileContent(result.content);
       }
 
-      const stats = await window.electronAPI.getFileStats(path);
+      const stats = await rpc.request.getFileStats({ filePath: path });
       if (!stats.error) {
         setFileStats({ size: stats.size, modified: stats.modified });
       }
@@ -128,7 +127,7 @@ function App() {
 
   const scanDirPath = useCallback(async (dirPath: string) => {
     try {
-      const items = await window.electronAPI.scanDirectory(dirPath);
+      const items = await rpc.request.scanDirectory({ dirPath });
 
       if (items.length > 0) {
         setTreeItems(prevItems => {
@@ -162,8 +161,7 @@ function App() {
     } catch (error) {
       console.error('Failed to scan subdirectory:', error);
     }
-
-  }, [])
+  }, []);
 
   // Handle expanded state change
   const handleExpandStateChange = useCallback(async (state: Record<string, boolean>) => {
@@ -173,12 +171,12 @@ function App() {
 
     setExpandedState(state);
     prevExpandedStateRef.current = { ...state };
-    await window.electronAPI.setExpandedState(state);
+    await rpc.request.setExpandedState({ state });
 
     for (const [dirPath] of newlyExpanded) {
       await scanDirPath(dirPath);
     }
-  }, []);
+  }, [scanDirPath]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
