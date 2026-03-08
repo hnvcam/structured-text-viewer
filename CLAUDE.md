@@ -63,8 +63,49 @@ bun run typecheck    # tsc --noEmit
 | `setExpandedState` | `{ state }` | `void` |
 
 ## Gotchas
-- Electrobun API reference → **read `llms.txt`**
-- Updater: use `Updater.localInfo.channel()` (not `Updater.getLocalInfo()`)
+
+### Electrobun API
+- Full API reference → **read `llms.txt`**
+- Updater: use `Updater.localInfo.channel()` — `Updater.getLocalInfo()` does not exist
 - WebView import: `"electrobun/view"` (not `"electrobun/browser"`)
-- `win.icon` path must exist or build fails silently
+- `win.icon` path must exist or build fails silently with "Bundle failed"
 - `src/types/three.d.ts` stubs `declare module "three"` for electrobun's WebGPU code
+
+### Build
+- Use `electrobun build --env=stable` (or `--env=canary`) for production, NOT `--targets=win-x64`
+  - `--targets=win-x64` is cross-compilation mode and silently skips the `copy` config
+  - `--env=stable` builds for the current platform and correctly copies all assets
+- Directory copy in `electrobun.config.ts` (`"dist/assets": "views/mainview/assets"`) only works with `--env=*`, not `--targets=*`
+
+### Window / WebView
+- `window.close()` in the webview does NOT close the native window — send an RPC message to the Bun side and call `win.close()` there instead
+- `titleBarStyle: "hidden"` on Windows causes: blurry rendering, broken window resize, and missing maximize/minimize buttons. Use the default titlebar and put toolbar controls inside the app content instead.
+
+### High DPI (Windows)
+- Electrobun does not automatically call `SetProcessDpiAwareness` (tracked in issue #239)
+- Fix: call via Bun FFI **before** creating any `BrowserWindow`:
+```typescript
+import { dlopen, FFIType } from "bun:ffi";
+try {
+  const { symbols: { SetProcessDpiAwarenessContext } } = dlopen("user32", {
+    SetProcessDpiAwarenessContext: { args: [FFIType.i64], returns: FFIType.bool },
+  });
+  SetProcessDpiAwarenessContext(-4n); // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+} catch {
+  try {
+    const { symbols: { SetProcessDpiAwareness } } = dlopen("shcore", {
+      SetProcessDpiAwareness: { args: [FFIType.i32], returns: FFIType.i32 },
+    });
+    SetProcessDpiAwareness(2); // PROCESS_PER_MONITOR_DPI_AWARE
+  } catch {}
+}
+```
+
+### RPC — File Dialog Pattern
+- `Utils.openFileDialog` is a blocking modal. While it's open, `NavigationCompleted` can fire, which reinitializes Electroview and **drops any pending RPC request responses**.
+- **Never** use a request-response RPC call to open a file dialog. The `await rpc.request.selectDirectory()` pattern will silently fail.
+- **Correct pattern**: fire-and-forget message → Bun opens dialog → Bun pushes result back as a webview message → webview handles it via a `CustomEvent`:
+  1. Webview: `rpc.send.openDirectoryDialog({})` (no await)
+  2. Bun handler: opens dialog, then calls `win.webview.rpc?.send.directorySelected({ dirPath })`
+  3. Webview rpcClient: `directorySelected` handler dispatches `new CustomEvent("directorySelected", { detail: { dirPath } })`
+  4. React: `window.addEventListener("directorySelected", handler)` in a `useEffect`

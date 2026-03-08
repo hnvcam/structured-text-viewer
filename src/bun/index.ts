@@ -2,6 +2,23 @@ import { BrowserWindow, BrowserView, Utils, Updater } from "electrobun/bun";
 import type { AppRPC, FileTreeItem } from "../shared/rpc";
 import path from "path";
 import fs from "fs";
+import { dlopen, FFIType } from "bun:ffi";
+
+// Call before any window is created.
+// Try V2 (per-monitor, Windows 10 1703+) first, fall back to V1.
+try {
+  const { symbols: { SetProcessDpiAwarenessContext } } = dlopen("user32", {
+    SetProcessDpiAwarenessContext: { args: [FFIType.i64], returns: FFIType.bool },
+  });
+  SetProcessDpiAwarenessContext(-4n); // DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+} catch {
+  try {
+    const { symbols: { SetProcessDpiAwareness } } = dlopen("shcore", {
+      SetProcessDpiAwareness: { args: [FFIType.i32], returns: FFIType.i32 },
+    });
+    SetProcessDpiAwareness(2); // PROCESS_PER_MONITOR_DPI_AWARE
+  } catch { /* not Windows or already set */ }
+}
 
 const DEV_SERVER_PORT = 5173;
 const DEV_SERVER_URL = `http://localhost:${DEV_SERVER_PORT}`;
