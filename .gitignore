@@ -4,6 +4,8 @@ node_modules/
 # Build outputs
 dist/
 build/
+artifacts/
+
 
 # Logs
 *.log
@@ -30,3 +32,4 @@ Thumbs.db
 
 # Electron
 *.asar
+
