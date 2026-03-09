@@ -12,7 +12,7 @@ export interface FileStats {
   path: string;
 }
 
-export type FileType = 'markdown' | 'mermaid' | 'svg' | 'folder';
+export type FileType = 'markdown' | 'mermaid' | 'svg' | null;
 
 export interface AppState {
   currentDirectory: string | null;

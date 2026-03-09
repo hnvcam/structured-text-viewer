@@ -1,9 +1,10 @@
 import { Button } from '@/components/ui/button';
-import { Menu, Sun, Moon, FolderOpen } from 'lucide-react';
+import { Menu, Sun, Moon, FolderOpen, RefreshCw } from 'lucide-react';
 
 interface TitleBarProps {
   onToggleSidebar: () => void;
   onBrowseDirectory: () => void;
+  onRefreshDirectory: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
@@ -11,6 +12,7 @@ interface TitleBarProps {
 export function TitleBar({
   onToggleSidebar,
   onBrowseDirectory,
+  onRefreshDirectory,
   theme,
   onToggleTheme,
 }: TitleBarProps) {
@@ -25,6 +27,15 @@ export function TitleBar({
           title="Toggle Sidebar (Ctrl+B)"
         >
           <Menu className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={onRefreshDirectory}
+          title="Refresh Directory"
+        >
+          <RefreshCw className="h-4 w-4" />
         </Button>
         <Button
           variant="ghost"

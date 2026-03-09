@@ -1,7 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TreeView } from './TreeView';
-import { FolderOpen, HardDrive } from 'lucide-react';
+import { FolderOpen, HardDrive, RefreshCw } from 'lucide-react';
 import { FileTreeItem } from '@/types';
 
 interface SidebarProps {
@@ -12,6 +12,7 @@ interface SidebarProps {
   selectedFile: string | null;
   expandedState: Record<string, boolean>;
   onBrowse: () => void;
+  onRefresh: () => void;
   onSelectFile: (path: string, type: 'markdown' | 'mermaid' | 'svg') => void;
   onResize: (width: number) => void;
   onExpandStateChange: (state: Record<string, boolean>) => void;
@@ -25,6 +26,7 @@ export function Sidebar({
   selectedFile,
   expandedState,
   onBrowse,
+  onRefresh,
   onSelectFile,
   onResize,
   onExpandStateChange,
@@ -77,8 +79,22 @@ export function Sidebar({
           className="h-7 w-7 flex-shrink-0"
           onClick={(e) => {
             e.stopPropagation();
+            onRefresh();
+          }}
+          title="Refresh Directory"
+          disabled={!currentDirectory}
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7 flex-shrink-0"
+          onClick={(e) => {
+            e.stopPropagation();
             onBrowse();
           }}
+          title="Browse Directory"
         >
           <FolderOpen className="h-4 w-4" />
         </Button>

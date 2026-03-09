@@ -6,7 +6,7 @@ import { StatusBar } from './components/StatusBar';
 import { Separator } from './components/ui/separator';
 import { useTheme } from './hooks/useTheme';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { FileTreeItem } from './types';
+import { FileTreeItem, FileType } from './types';
 import { rpc } from './rpcClient';
 
 const DEFAULT_ZOOM = 16;
@@ -21,7 +21,7 @@ function App() {
   // App state
   const [currentDirectory, setCurrentDirectory] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [fileType, setFileType] = useState<'markdown' | 'mermaid' | 'svg' | null>(null);
+  const [fileType, setFileType] = useState<FileType>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
   const [fileStats, setFileStats] = useState<{ size: number; modified: string } | null>(null);
@@ -168,6 +168,21 @@ function App() {
     }
   }, []);
 
+  // Handle directory refresh — rescan current directory and all expanded subdirs
+  const handleRefreshDirectory = useCallback(async () => {
+    if (!currentDirectory) return;
+    const items = await rpc.request.scanDirectory({ dirPath: currentDirectory });
+    setTreeItems(items);
+
+    const expandedDirs = Object.entries(expandedState)
+      .filter(([_, v]) => v)
+      .map(([k]) => k);
+
+    for (const dirPath of expandedDirs) {
+      await scanDirPath(dirPath);
+    }
+  }, [currentDirectory, expandedState, scanDirPath]);
+
   // Handle expanded state change
   const handleExpandStateChange = useCallback(async (state: Record<string, boolean>) => {
     const newlyExpanded = Object.entries(state).filter(
@@ -197,6 +212,7 @@ function App() {
       <TitleBar
         onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
         onBrowseDirectory={handleBrowseDirectory}
+        onRefreshDirectory={handleRefreshDirectory}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
@@ -210,6 +226,7 @@ function App() {
           selectedFile={selectedFile}
           expandedState={expandedState}
           onBrowse={handleBrowseDirectory}
+          onRefresh={handleRefreshDirectory}
           onSelectFile={handleSelectFile}
           onResize={setSidebarWidth}
           onExpandStateChange={handleExpandStateChange}

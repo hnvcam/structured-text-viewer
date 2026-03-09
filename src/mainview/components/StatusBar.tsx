@@ -1,10 +1,11 @@
+import { FileType } from '@/types';
 import { FileText, FileCode, Folder } from 'lucide-react';
 
 interface StatusBarProps {
   filePath: string | null;
   fileSize: number | null;
   fileModified: string | null;
-  fileType: 'markdown' | 'mermaid' | null;
+  fileType: FileType;
 }
 
 function formatFileSize(bytes: number): string {
