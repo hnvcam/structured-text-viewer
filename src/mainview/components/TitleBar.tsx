@@ -5,6 +5,7 @@ interface TitleBarProps {
   onToggleSidebar: () => void;
   onBrowseDirectory: () => void;
   onRefreshDirectory: () => void;
+  selectedFile: string | null;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
@@ -13,6 +14,7 @@ export function TitleBar({
   onToggleSidebar,
   onBrowseDirectory,
   onRefreshDirectory,
+  selectedFile,
   theme,
   onToggleTheme,
 }: TitleBarProps) {
@@ -48,8 +50,11 @@ export function TitleBar({
         </Button>
       </div>
 
-      <div className="flex-1 text-center text-xs text-muted-foreground select-none">
-        Structured Text Viewer
+      <div
+        className="flex-1 truncate text-center text-xs text-muted-foreground select-none"
+        title={selectedFile || undefined}
+      >
+        {selectedFile || 'Structured Text Viewer'}
       </div>
 
       <div className="flex items-center gap-1">

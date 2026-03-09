@@ -213,6 +213,7 @@ function App() {
         onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
         onBrowseDirectory={handleBrowseDirectory}
         onRefreshDirectory={handleRefreshDirectory}
+        selectedFile={selectedFile}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
