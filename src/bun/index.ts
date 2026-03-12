@@ -127,14 +127,14 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
       const fileName = entry.name;
       const lowerName = fileName.toLowerCase();
       const ext = path.extname(fileName).toLowerCase();
-      if (entry.isFile() && (lowerName.endsWith(".md") || lowerName.endsWith(".mmd") || lowerName.endsWith(".svg"))) {
+      if (entry.isFile() && (lowerName.endsWith(".md") || lowerName.endsWith(".mmd") || lowerName.endsWith(".svg") || lowerName.endsWith(".html") || lowerName.endsWith(".htm"))) {
         const fullPath = path.join(dirPath, fileName);
         try {
           fs.accessSync(fullPath, fs.constants.R_OK);
           result.push({
             id: fullPath,
             name: fileName,
-            type: ext === ".md" ? "markdown" : ext === ".svg" ? "svg" : "mermaid",
+            type: ext === ".md" ? "markdown" : ext === ".svg" ? "svg" : (ext === ".html" || ext === ".htm") ? "html" : "mermaid",
             path: fullPath,
           });
         } catch {

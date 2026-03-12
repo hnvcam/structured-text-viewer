@@ -3,7 +3,7 @@ import type { RPCSchema } from "electrobun/bun";
 export interface FileTreeItem {
   id: string;
   name: string;
-  type: 'folder' | 'markdown' | 'mermaid' | 'svg';
+  type: 'folder' | 'markdown' | 'mermaid' | 'svg' | 'html';
   path: string;
   children?: FileTreeItem[];
 }
