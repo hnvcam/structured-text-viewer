@@ -4,16 +4,95 @@ import rehypeRaw from 'rehype-raw';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import mermaid from 'mermaid';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, ImageOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { rpc } from '../rpcClient';
 
 interface MarkdownViewerProps {
   content: string;
+  filePath: string;
   zoom: number;
   onZoomChange: (zoom: number) => void;
 }
 
-export function MarkdownViewer({ content, zoom, onZoomChange }: MarkdownViewerProps) {
+// Protocols the webview can load directly without disk resolution.
+function isAbsoluteUrl(src: string): boolean {
+  return /^(https?:|data:|blob:|file:)/i.test(src);
+}
+
+// Renders a markdown image, resolving relative/disk paths against the markdown
+// file's directory via the bun process (which returns a base64 data URL).
+function MarkdownImage({
+  src,
+  alt,
+  title,
+  markdownPath,
+}: {
+  src?: string;
+  alt?: string;
+  title?: string;
+  markdownPath: string;
+}) {
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    if (!src) {
+      setResolvedSrc(null);
+      setFailed(true);
+      return;
+    }
+
+    if (isAbsoluteUrl(src)) {
+      setResolvedSrc(src);
+      setFailed(false);
+      return;
+    }
+
+    let cancelled = false;
+    setResolvedSrc(null);
+    setFailed(false);
+
+    rpc.request
+      .resolveImage({ markdownPath, src })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.dataUrl) setResolvedSrc(res.dataUrl);
+        else setFailed(true);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [src, markdownPath]);
+
+  if (failed) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded border border-destructive/40 bg-destructive/10 px-2 py-1 text-xs text-destructive"
+        title={src ? `Image not found: ${src}` : 'Image not found'}
+      >
+        <ImageOff className="h-3.5 w-3.5" />
+        {alt || 'image not found'}
+      </span>
+    );
+  }
+
+  if (!resolvedSrc) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+        Loading image…
+      </span>
+    );
+  }
+
+  return <img src={resolvedSrc} alt={alt} title={title} />;
+}
+
+export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: MarkdownViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mermaidId, setMermaidId] = useState(0);
   const isMountedRef = useRef(true);
@@ -176,6 +255,17 @@ export function MarkdownViewer({ content, zoom, onZoomChange }: MarkdownViewerPr
 
                 return (
                   <code className={className}>{children}</code>
+                );
+              },
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              img(props: any) {
+                return (
+                  <MarkdownImage
+                    src={props.src}
+                    alt={props.alt}
+                    title={props.title}
+                    markdownPath={filePath}
+                  />
                 );
               },
             }}

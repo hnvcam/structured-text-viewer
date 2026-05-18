@@ -109,6 +109,48 @@ function setExpandedState(state: Record<string, boolean>): void {
   saveStore(store);
 }
 
+const IMAGE_MIME: Record<string, string> = {
+  ".png": "image/png",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".gif": "image/gif",
+  ".svg": "image/svg+xml",
+  ".webp": "image/webp",
+  ".bmp": "image/bmp",
+  ".ico": "image/x-icon",
+  ".avif": "image/avif",
+  ".apng": "image/apng",
+};
+
+// Resolve an image referenced from a markdown file (relative or absolute path)
+// and return it as a base64 data URL, since the webview runs from a views://
+// origin and cannot load disk paths directly.
+function resolveImage(markdownPath: string, src: string): { dataUrl?: string; error?: string } {
+  try {
+    let target = src;
+    try {
+      target = decodeURIComponent(src);
+    } catch {
+      // src was not percent-encoded — use it as-is
+    }
+
+    const resolved = path.isAbsolute(target)
+      ? target
+      : path.resolve(path.dirname(markdownPath), target);
+
+    const ext = path.extname(resolved).toLowerCase();
+    const mime = IMAGE_MIME[ext];
+    if (!mime) {
+      return { error: `Unsupported image type: ${ext || "unknown"}` };
+    }
+
+    const data = fs.readFileSync(resolved);
+    return { dataUrl: `data:${mime};base64,${data.toString("base64")}` };
+  } catch (error) {
+    return { error: `Failed to load image: ${(error as Error).message}` };
+  }
+}
+
 function scanDirectory(dirPath: string): FileTreeItem[] {
   const result: FileTreeItem[] = [];
   try {
@@ -174,6 +216,7 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       openExternal: ({ url }) => { Utils.openExternal(url); },
       getExpandedState: () => getExpandedState(),
       setExpandedState: ({ state }) => { setExpandedState(state); },
+      resolveImage: ({ markdownPath, src }) => resolveImage(markdownPath, src),
     },
     messages: {
       openDirectoryDialog: async () => {

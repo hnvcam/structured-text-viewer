@@ -19,6 +19,7 @@ export type AppRPC = {
       openExternal: { params: { url: string }; response: void };
       getExpandedState: { params: {}; response: Record<string, boolean> };
       setExpandedState: { params: { state: Record<string, boolean> }; response: void };
+      resolveImage: { params: { markdownPath: string; src: string }; response: { dataUrl?: string; error?: string } };
     };
     messages: {
       openDirectoryDialog: {};

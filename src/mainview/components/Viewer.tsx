@@ -69,6 +69,7 @@ export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange 
     <div key={viewerKey} className="h-full">
       <MarkdownViewer
         content={content}
+        filePath={filePath}
         zoom={zoom}
         onZoomChange={onZoomChange}
       />

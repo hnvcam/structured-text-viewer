@@ -61,6 +61,7 @@ bun run typecheck    # tsc --noEmit
 | `openExternal` | `{ url }` | `void` |
 | `getExpandedState` | `{}` | `Record<string, boolean>` |
 | `setExpandedState` | `{ state }` | `void` |
+| `resolveImage` | `{ markdownPath, src }` | `{ dataUrl?, error? }` |
 
 ## Gotchas
 
