@@ -23,6 +23,7 @@
         "react-dom": "^19.0.0",
         "react-markdown": "^9.0.1",
         "rehype-raw": "^7.0.0",
+        "rehype-slug": "^6.0.0",
         "remark-gfm": "^4.0.0",
         "tailwind-merge": "^2.6.0",
       },
@@ -623,6 +624,8 @@
 
     "get-nonce": ["get-nonce@1.0.1", "https://registry.npmmirror.com/get-nonce/-/get-nonce-1.0.1.tgz", {}, "sha512-FJhYRoDaiatfEkUK8HKlicmu/3SGFD51q3itKDGoSTysQJBnfOcxU5GxnhE1E6soB76MbT0MBtnKJuXyAx+96Q=="],
 
+    "github-slugger": ["github-slugger@2.0.0", "", {}, "sha512-IaOQ9puYtjrkq7Y0Ygl9KDZnrf/aiUJYUpVf89y8kyaxbRG7Y1SrX/jaumrv81vc61+kiMempujsM3Yw7w5qcw=="],
+
     "glob-parent": ["glob-parent@6.0.2", "https://registry.npmmirror.com/glob-parent/-/glob-parent-6.0.2.tgz", { "dependencies": { "is-glob": "^4.0.3" } }, "sha512-XxwI8EOhVQgWp6iDL+3b0r86f4d6AX6zSU55HfB4ydCEuXLXc5FcYeOu+nnGftS4TEju/11rt4KJPTMgbfmv4A=="],
 
     "hachure-fill": ["hachure-fill@0.5.2", "https://registry.npmmirror.com/hachure-fill/-/hachure-fill-0.5.2.tgz", {}, "sha512-3GKBOn+m2LX9iq+JC1064cSFprJY4jL1jCXTcpnfER5HYE2l/4EfWSGzkPa/ZDBmYI0ZOEj5VHV/eKnPGkHuOg=="],
@@ -633,6 +636,8 @@
 
     "hast-util-from-parse5": ["hast-util-from-parse5@8.0.3", "https://registry.npmmirror.com/hast-util-from-parse5/-/hast-util-from-parse5-8.0.3.tgz", { "dependencies": { "@types/hast": "^3.0.0", "@types/unist": "^3.0.0", "devlop": "^1.0.0", "hastscript": "^9.0.0", "property-information": "^7.0.0", "vfile": "^6.0.0", "vfile-location": "^5.0.0", "web-namespaces": "^2.0.0" } }, "sha512-3kxEVkEKt0zvcZ3hCRYI8rqrgwtlIOFMWkbclACvjlDw8Li9S2hk/d51OI0nr/gIpdMHNepwgOKqZ/sy0Clpyg=="],
 
+    "hast-util-heading-rank": ["hast-util-heading-rank@3.0.0", "", { "dependencies": { "@types/hast": "^3.0.0" } }, "sha512-EJKb8oMUXVHcWZTDepnr+WNbfnXKFNf9duMesmr4S8SXTJBJ9M4Yok08pu9vxdJwdlGRhVumk9mEhkEvKGifwA=="],
+
     "hast-util-parse-selector": ["hast-util-parse-selector@4.0.0", "https://registry.npmmirror.com/hast-util-parse-selector/-/hast-util-parse-selector-4.0.0.tgz", { "dependencies": { "@types/hast": "^3.0.0" } }, "sha512-wkQCkSYoOGCRKERFWcxMVMOcYE2K1AaNLU8DXS9arxnLOUEWbOXKXiJUNzEpqZ3JOKpnha3jkFrumEjVliDe7A=="],
 
     "hast-util-raw": ["hast-util-raw@9.1.0", "https://registry.npmmirror.com/hast-util-raw/-/hast-util-raw-9.1.0.tgz", { "dependencies": { "@types/hast": "^3.0.0", "@types/unist": "^3.0.0", "@ungap/structured-clone": "^1.0.0", "hast-util-from-parse5": "^8.0.0", "hast-util-to-parse5": "^8.0.0", "html-void-elements": "^3.0.0", "mdast-util-to-hast": "^13.0.0", "parse5": "^7.0.0", "unist-util-position": "^5.0.0", "unist-util-visit": "^5.0.0", "vfile": "^6.0.0", "web-namespaces": "^2.0.0", "zwitch": "^2.0.0" } }, "sha512-Y8/SBAHkZGoNkpzqqfCldijcuUKh7/su31kEBp67cFY09Wy0mTRgtsLYsiIxMJxlu0f6AA5SUTbDR8K0rxnbUw=="],
@@ -640,6 +645,8 @@
     "hast-util-to-jsx-runtime": ["hast-util-to-jsx-runtime@2.3.6", "https://registry.npmmirror.com/hast-util-to-jsx-runtime/-/hast-util-to-jsx-runtime-2.3.6.tgz", { "dependencies": { "@types/estree": "^1.0.0", "@types/hast": "^3.0.0", "@types/unist": "^3.0.0", "comma-separated-tokens": "^2.0.0", "devlop": "^1.0.0", "estree-util-is-identifier-name": "^3.0.0", "hast-util-whitespace": "^3.0.0", "mdast-util-mdx-expression": "^2.0.0", "mdast-util-mdx-jsx": "^3.0.0", "mdast-util-mdxjs-esm": "^2.0.0", "property-information": "^7.0.0", "space-separated-tokens": "^2.0.0", "style-to-js": "^1.0.0", "unist-util-position": "^5.0.0", "vfile-message": "^4.0.0" } }, "sha512-zl6s8LwNyo1P9uw+XJGvZtdFF1GdAkOg8ujOw+4Pyb76874fLps4ueHXDhXWdk6YHQ6OgUtinliG7RsYvCbbBg=="],
 
     "hast-util-to-parse5": ["hast-util-to-parse5@8.0.1", "https://registry.npmmirror.com/hast-util-to-parse5/-/hast-util-to-parse5-8.0.1.tgz", { "dependencies": { "@types/hast": "^3.0.0", "comma-separated-tokens": "^2.0.0", "devlop": "^1.0.0", "property-information": "^7.0.0", "space-separated-tokens": "^2.0.0", "web-namespaces": "^2.0.0", "zwitch": "^2.0.0" } }, "sha512-MlWT6Pjt4CG9lFCjiz4BH7l9wmrMkfkJYCxFwKQic8+RTZgWPuWxwAfjJElsXkex7DJjfSJsQIt931ilUgmwdA=="],
+
+    "hast-util-to-string": ["hast-util-to-string@3.0.1", "", { "dependencies": { "@types/hast": "^3.0.0" } }, "sha512-XelQVTDWvqcl3axRfI0xSeoVKzyIFPwsAGSLIsKdJKQMXDYJS4WYrBNF/8J7RdhIcFI2BOHgAifggsvsxp/3+A=="],
 
     "hast-util-whitespace": ["hast-util-whitespace@3.0.0", "https://registry.npmmirror.com/hast-util-whitespace/-/hast-util-whitespace-3.0.0.tgz", { "dependencies": { "@types/hast": "^3.0.0" } }, "sha512-88JUN06ipLwsnv+dVn+OIYOvAuvBMy/Qoi6O7mQHxdPXpjy+Cd6xRkWwux7DKO+4sYILtLBRIKgsdpS2gQc7qw=="],
 
@@ -912,6 +919,8 @@
     "redux": ["redux@5.0.1", "https://registry.npmmirror.com/redux/-/redux-5.0.1.tgz", {}, "sha512-M9/ELqF6fy8FwmkpnF0S3YKOqMyoWJ4+CS5Efg2ct3oY9daQvd/Pc71FpGZsVsbl3Cpb+IIcjBDUnnyBdQbq4w=="],
 
     "rehype-raw": ["rehype-raw@7.0.0", "https://registry.npmmirror.com/rehype-raw/-/rehype-raw-7.0.0.tgz", { "dependencies": { "@types/hast": "^3.0.0", "hast-util-raw": "^9.0.0", "vfile": "^6.0.0" } }, "sha512-/aE8hCfKlQeA8LmyeyQvQF3eBiLRGNlfBJEvWH7ivp9sBqs7TNqBL5X3v157rM4IFETqDnIOO+z5M/biZbo9Ww=="],
+
+    "rehype-slug": ["rehype-slug@6.0.0", "", { "dependencies": { "@types/hast": "^3.0.0", "github-slugger": "^2.0.0", "hast-util-heading-rank": "^3.0.0", "hast-util-to-string": "^3.0.0", "unist-util-visit": "^5.0.0" } }, "sha512-lWyvf/jwu+oS5+hL5eClVd3hNdmwM1kAC0BUvEGD19pajQMIzcNUd/k9GsfQ+FfECvX+JE+e9/btsKH0EjJT6A=="],
 
     "remark-gfm": ["remark-gfm@4.0.1", "https://registry.npmmirror.com/remark-gfm/-/remark-gfm-4.0.1.tgz", { "dependencies": { "@types/mdast": "^4.0.0", "mdast-util-gfm": "^3.0.0", "micromark-extension-gfm": "^3.0.0", "remark-parse": "^11.0.0", "remark-stringify": "^11.0.0", "unified": "^11.0.0" } }, "sha512-1quofZ2RQ9EWdeN34S79+KExV1764+wCUGop5CPL1WGdD0ocPpu91lzPGbwWMECpEpd42kJGQwzRfyov9j4yNg=="],
 

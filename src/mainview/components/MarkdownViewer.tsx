@@ -1,18 +1,25 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import rehypeSlug from 'rehype-slug';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import mermaid from 'mermaid';
 import { Button } from '@/components/ui/button';
-import { ZoomIn, ZoomOut, RotateCcw, ImageOff } from 'lucide-react';
+import { ZoomIn, ZoomOut, RotateCcw, ImageOff, ArrowUpToLine, ArrowDownToLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { rpc } from '../rpcClient';
+import { ExternalLinkPreview } from './ExternalLinkPreview';
 
 interface MarkdownViewerProps {
   content: string;
   filePath: string;
   zoom: number;
   onZoomChange: (zoom: number) => void;
+}
+
+// localStorage key for the saved scroll position of a given file.
+function scrollKey(filePath: string): string {
+  return `scrollPos:${filePath}`;
 }
 
 // Protocols the webview can load directly without disk resolution.
@@ -98,6 +105,117 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: Markdo
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // External-link preview overlay state.
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+
+  // Scroll-position persistence. We persist only positions produced by genuine
+  // user scrolling — programmatic restores never overwrite the saved value, so
+  // layout shifts during restore can't clobber it.
+  const userInteractedRef = useRef(false);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Smoothly scroll the content container to the top or bottom. These are
+  // intentional user navigations, so the resulting position should persist.
+  const scrollToTop = useCallback(() => {
+    userInteractedRef.current = true;
+    containerRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
+
+  const scrollToBottom = useCallback(() => {
+    userInteractedRef.current = true;
+    const el = containerRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+  }, []);
+
+  // Restore the saved scroll position for this file. Layout grows as images and
+  // mermaid diagrams render, so this is called again once they settle.
+  const restoreScroll = useCallback(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const raw = localStorage.getItem(scrollKey(filePath));
+    const saved = raw ? parseInt(raw, 10) : 0;
+    if (saved > 0) {
+      el.scrollTop = Math.min(saved, el.scrollHeight);
+    }
+  }, [filePath]);
+
+  // Reset restore state whenever the file changes, then restore after first paint.
+  // Re-apply a few times because images and mermaid diagrams grow the page after
+  // the initial paint — but stop once the user takes over scrolling.
+  useEffect(() => {
+    userInteractedRef.current = false;
+    const attempt = () => {
+      if (!userInteractedRef.current) restoreScroll();
+    };
+    const raf = requestAnimationFrame(attempt);
+    const t1 = window.setTimeout(attempt, 150);
+    const t2 = window.setTimeout(attempt, 500);
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [filePath, restoreScroll]);
+
+  // Persist scroll position (debounced), but only for user-initiated scrolling.
+  const handleScroll = useCallback(() => {
+    if (!userInteractedRef.current) return;
+    const el = containerRef.current;
+    if (!el) return;
+    const top = el.scrollTop;
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      localStorage.setItem(scrollKey(filePath), String(top));
+    }, 200);
+  }, [filePath]);
+
+  // Handle clicks on rendered markdown links:
+  //  - in-page anchors (#slug or self-URL#slug) → smooth scroll to the heading
+  //  - http/https → open the in-app preview overlay
+  //  - mailto/other → hand off to the system
+  const handleLinkClick = useCallback(
+    (e: React.MouseEvent<HTMLAnchorElement>, href?: string) => {
+      if (!href) return;
+
+      let url: URL;
+      try {
+        url = new URL(href, window.location.href);
+      } catch {
+        return;
+      }
+
+      const sameDoc =
+        url.origin === window.location.origin &&
+        url.pathname === window.location.pathname;
+
+      if (href.startsWith('#') || (url.hash && sameDoc)) {
+        e.preventDefault();
+        const id = decodeURIComponent(url.hash.slice(1));
+        const target = id ? document.getElementById(id) : null;
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        return;
+      }
+
+      if (url.protocol === 'http:' || url.protocol === 'https:') {
+        e.preventDefault();
+        setPreviewUrl(url.href);
+        return;
+      }
+
+      if (url.protocol === 'mailto:') {
+        e.preventDefault();
+        rpc.request.openExternal({ url: href });
+        return;
+      }
+
+      // Anything else: prevent navigating the app webview away.
+      e.preventDefault();
+    },
+    []
+  );
+
   // Initialize mermaid
   useEffect(() => {
     mermaid.initialize({
@@ -181,6 +299,7 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: Markdo
   }, [renderMermaid]);
 
   const handleWheel = (e: React.WheelEvent) => {
+    userInteractedRef.current = true;
     if (e.ctrlKey) {
       e.preventDefault();
       e.stopPropagation();
@@ -191,7 +310,7 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: Markdo
   };
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="relative flex h-full flex-col">
       {/* Zoom controls */}
       <div className="flex items-center gap-2 border-b bg-muted/30 px-4 py-2">
         <Button
@@ -222,6 +341,27 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: Markdo
         >
           <RotateCcw className="h-4 w-4" />
         </Button>
+
+        <div className="mx-1 h-4 w-px bg-border" />
+
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          onClick={scrollToTop}
+          title="View Top"
+        >
+          <ArrowUpToLine className="h-4 w-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="icon"
+          className="h-8 w-8"
+          onClick={scrollToBottom}
+          title="View Bottom"
+        >
+          <ArrowDownToLine className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Content */}
@@ -229,6 +369,8 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: Markdo
         ref={containerRef}
         className="flex-1 overflow-auto p-6"
         onWheel={handleWheel}
+        onScroll={handleScroll}
+        onPointerDown={() => { userInteractedRef.current = true; }}
         style={{ fontSize: `${zoom}px` }}
       >
         <div
@@ -237,8 +379,22 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: Markdo
         >
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw]}
+            rehypePlugins={[rehypeRaw, rehypeSlug]}
             components={{
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              a(props: any) {
+                const { href, children, node, ...rest } = props;
+                void node;
+                return (
+                  <a
+                    {...rest}
+                    href={href}
+                    onClick={(e) => handleLinkClick(e, href)}
+                  >
+                    {children}
+                  </a>
+                );
+              },
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               code(props: any) {
                 const { className, children } = props;
@@ -274,6 +430,8 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: Markdo
           </ReactMarkdown>
         </div>
       </div>
+
+      <ExternalLinkPreview url={previewUrl} onClose={() => setPreviewUrl(null)} />
     </div>
   );
 }
