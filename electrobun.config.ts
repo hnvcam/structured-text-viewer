@@ -19,5 +19,12 @@ export default {
     win: {
       defaultRenderer: "native",
     },
+    linux: {
+      defaultRenderer: "cef",
+      bundleCEF: true,
+    },
+  },
+  scripts: {
+    postBuild: "./scripts/post-build.ts",
   },
 } satisfies ElectrobunConfig;

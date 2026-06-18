@@ -245,3 +245,35 @@ const win = new BrowserWindow({
   url,
   rpc,
 });
+
+// On Linux, register a desktop entry so the app appears in the application launcher menu.
+// The Electrobun installer creates a shortcut on ~/Desktop/, but Linux DEs
+// like GNOME require the .desktop file in ~/.local/share/applications/.
+if (process.platform === "linux") {
+  try {
+    const appsDir = path.join(Utils.paths.home, ".local", "share", "applications");
+    const desktopFilePath = path.join(appsDir, "com.structured-text-viewer.app.desktop");
+    if (!fs.existsSync(desktopFilePath)) {
+      fs.mkdirSync(appsDir, { recursive: true });
+      const appBinDir = path.dirname(process.execPath);
+      const launcherPath = path.join(appBinDir, "launcher");
+      const desktopContent = [
+        "[Desktop Entry]",
+        "Type=Application",
+        "Name=Structured Text Viewer",
+        "Comment=A local Markdown & Mermaid file explorer and viewer",
+        `Exec="${launcherPath}"`,
+        "Terminal=false",
+        "Categories=Office;Viewer;",
+        "Keywords=markdown;mermaid;svg;viewer;",
+        "StartupNotify=true",
+        "",
+      ].join("\n");
+      fs.writeFileSync(desktopFilePath, desktopContent);
+      fs.chmodSync(desktopFilePath, 0o755);
+      console.log("Registered desktop entry at", desktopFilePath);
+    }
+  } catch (error) {
+    console.error("Failed to register desktop entry:", error);
+  }
+}

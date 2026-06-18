@@ -3,7 +3,7 @@
 > For all Electrobun API details, refer to `llms.txt` in the project root.
 
 ## Project
-Desktop Markdown & Mermaid file explorer/viewer built with Electrobun (Windows, WebView2).
+Desktop Markdown & Mermaid file explorer/viewer built with Electrobun (cross-platform: Windows, macOS, Linux).
 
 **Stack**: Electrobun 1.15.1 · Bun · React 19 · TypeScript · TailwindCSS 3 · Vite · shadcn/ui
 

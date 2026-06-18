@@ -1,6 +1,6 @@
 # Structured Text Viewer
 
-A local Markdown, Mermaid, and SVG file explorer and viewer built with Electrobun, React, and TypeScript. Windows-only.
+A local Markdown, Mermaid, and SVG file explorer and viewer built with Electrobun, React, and TypeScript.
 
 ## Features
 
@@ -15,7 +15,7 @@ A local Markdown, Mermaid, and SVG file explorer and viewer built with Electrobu
 
 ## Tech Stack
 
-- **Electrobun** 1.15.1 - Windows desktop app framework (Bun + WebView2)
+- **Electrobun** 1.15.1 - Cross-platform desktop app framework (Bun + System WebView)
 - **Bun** - Runtime and package manager
 - **Vite** - Frontend build tool
 - **React 19** - UI library
@@ -25,8 +25,9 @@ A local Markdown, Mermaid, and SVG file explorer and viewer built with Electrobu
 
 ## Prerequisites
 
-- Windows (WebView2 required — ships with Windows 10/11)
 - [Bun](https://bun.sh) 1.x
+- **Windows**: WebView2 (ships with Windows 10/11)
+- **Linux**: WebKitGTK 3 or CEF (Electrobun bundles CEF for production builds)
 
 ## Getting Started
 
@@ -44,8 +45,33 @@ bun run dev:hmr
 ## Building
 
 ```bash
-# Build Windows installer
+# Build for the current platform
+bun run build
+
+# Build for Linux specifically
+bun run build:linux
+
+# Build for Windows specifically
 bun run build:win
+```
+
+### Linux System Dependencies
+
+If using the native WebKitGTK renderer (development), install:
+
+```bash
+# Debian/Ubuntu/Pop!_OS
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev
+```
+
+For production builds, Electrobun bundles Chromium Embedded Framework (CEF), which requires:
+
+```bash
+# Debian/Ubuntu/Pop!_OS
+sudo apt install libgtk-3-0 libnss3 libnspr4 libdbus-1-3 libatk1.0-0
+libatk-bridge2.0-0 libcups2 libdrm2 libxkbcommon0 libxcomposite1
+libxdamage1 libxfixes3 libxrandr2 libgbm1 libpango-1.0-0 libcairo2
+libasound2 libexpat1
 ```
 
 ## Keyboard Shortcuts
@@ -87,7 +113,11 @@ tailwind.config.js
 
 ## Configuration
 
-App config is stored at `%LOCALAPPDATA%/structured-text-viewer/config.json`. Theme preference is stored in `localStorage`.
+App config is stored in a platform-appropriate location:
+- **Windows**: `%LOCALAPPDATA%/structured-text-viewer/config.json`
+- **Linux**: `~/.local/share/structured-text-viewer/config.json`
+
+Theme preference is stored in `localStorage`.
 
 ## License
 

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Structured Text Viewer
+Comment=A local Markdown & Mermaid file explorer and viewer
+Exec=__LAUNCHER__
+Terminal=false
+Categories=Office;Viewer;
+Keywords=markdown;mermaid;svg;viewer;
+StartupNotify=true
