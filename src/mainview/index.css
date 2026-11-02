@@ -101,16 +101,22 @@
   @apply mb-4 leading-relaxed;
 }
 
+/* Code: force readable foreground in both themes. The `prose` plugin colours
+   `pre code` for a dark code background, which left it nearly invisible against
+   our light `bg-muted` block. */
 .markdown-content code {
   @apply bg-muted px-1.5 py-0.5 rounded text-sm font-mono;
+  color: hsl(var(--foreground));
 }
 
 .markdown-content pre {
   @apply bg-muted p-4 rounded-lg overflow-x-auto mb-4;
+  color: hsl(var(--foreground));
 }
 
 .markdown-content pre code {
   @apply bg-transparent p-0;
+  color: inherit;
 }
 
 .markdown-content blockquote {
@@ -167,4 +173,39 @@
 .mermaid-container {
   @apply flex items-center justify-center p-4;
 }
+
+/* GitHub-style alerts (> [!NOTE], [!TIP], [!IMPORTANT], [!WARNING], [!CAUTION]).
+   The remark plugin emits .markdown-alert + a type class; we drive all colours
+   from a single --alert-accent var so the app theme (not OS preference) controls
+   light/dark. */
+.markdown-content .markdown-alert {
+  @apply my-4 rounded-md border-l-4 px-4 py-2;
+  --alert-accent: 212 92% 45%;
+  border-left-color: hsl(var(--alert-accent));
+}
+
+.markdown-content .markdown-alert > :last-child {
+  margin-bottom: 0 !important;
+}
+
+.markdown-content .markdown-alert .markdown-alert-title {
+  @apply mb-1 flex items-center gap-2 font-semibold;
+  color: hsl(var(--alert-accent));
+}
+
+.markdown-content .markdown-alert .markdown-alert-title svg.octicon {
+  fill: currentColor;
+}
+
+.markdown-content .markdown-alert-note { --alert-accent: 212 92% 45%; }
+.markdown-content .markdown-alert-tip { --alert-accent: 137 66% 28%; }
+.markdown-content .markdown-alert-important { --alert-accent: 264 68% 53%; }
+.markdown-content .markdown-alert-warning { --alert-accent: 40 100% 30%; }
+.markdown-content .markdown-alert-caution { --alert-accent: 356 71% 48%; }
+
+.dark .markdown-content .markdown-alert-note { --alert-accent: 212 100% 67%; }
+.dark .markdown-content .markdown-alert-tip { --alert-accent: 137 55% 49%; }
+.dark .markdown-content .markdown-alert-important { --alert-accent: 265 90% 70%; }
+.dark .markdown-content .markdown-alert-warning { --alert-accent: 40 75% 49%; }
+.dark .markdown-content .markdown-alert-caution { --alert-accent: 4 90% 63%; }
 

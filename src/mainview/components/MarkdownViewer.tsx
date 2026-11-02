@@ -1,6 +1,9 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import { remarkAlert } from 'remark-github-blockquote-alert';
 import rehypeRaw from 'rehype-raw';
+import rehypeKatex from 'rehype-katex';
 import rehypeSlug from 'rehype-slug';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import mermaid from 'mermaid';
@@ -9,12 +12,14 @@ import { ZoomIn, ZoomOut, RotateCcw, ImageOff, ArrowUpToLine, ArrowDownToLine } 
 import { cn } from '@/lib/utils';
 import { rpc } from '../rpcClient';
 import { ExternalLinkPreview } from './ExternalLinkPreview';
+import { TableOfContents } from './TableOfContents';
 
 interface MarkdownViewerProps {
   content: string;
   filePath: string;
   zoom: number;
   onZoomChange: (zoom: number) => void;
+  tocOpen: boolean;
 }
 
 // localStorage key for the saved scroll position of a given file.
@@ -99,7 +104,7 @@ function MarkdownImage({
   return <img src={resolvedSrc} alt={alt} title={title} />;
 }
 
-export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: MarkdownViewerProps) {
+export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen }: MarkdownViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [mermaidId, setMermaidId] = useState(0);
   const isMountedRef = useRef(true);
@@ -364,7 +369,8 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: Markdo
         </Button>
       </div>
 
-      {/* Content */}
+      {/* Content + table of contents */}
+      <div className="flex flex-1 overflow-hidden">
       <div
         ref={containerRef}
         className="flex-1 overflow-auto p-6"
@@ -378,8 +384,8 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: Markdo
           style={{ wordBreak: 'break-word' }}
         >
           <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            rehypePlugins={[rehypeRaw, rehypeSlug]}
+            remarkPlugins={[remarkGfm, remarkMath, remarkAlert]}
+            rehypePlugins={[rehypeRaw, rehypeKatex, rehypeSlug]}
             components={{
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               a(props: any) {
@@ -429,6 +435,8 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange }: Markdo
             {content}
           </ReactMarkdown>
         </div>
+      </div>
+        {tocOpen && <TableOfContents containerRef={containerRef} content={content} />}
       </div>
 
       <ExternalLinkPreview url={previewUrl} onClose={() => setPreviewUrl(null)} />

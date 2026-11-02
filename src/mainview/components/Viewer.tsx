@@ -11,9 +11,10 @@ interface ViewerProps {
   error: string | null;
   zoom: number;
   onZoomChange: (zoom: number) => void;
+  tocOpen: boolean;
 }
 
-export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange }: ViewerProps) {
+export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange, tocOpen }: ViewerProps) {
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
@@ -72,6 +73,7 @@ export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange 
         filePath={filePath}
         zoom={zoom}
         onZoomChange={onZoomChange}
+        tocOpen={tocOpen}
       />
     </div>
   );

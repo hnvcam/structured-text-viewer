@@ -1,8 +1,10 @@
 import { Button } from '@/components/ui/button';
-import { Menu, Sun, Moon, FolderOpen, RefreshCw } from 'lucide-react';
+import { Menu, Sun, Moon, FolderOpen, RefreshCw, PanelRight } from 'lucide-react';
 
 interface TitleBarProps {
   onToggleSidebar: () => void;
+  onToggleToc: () => void;
+  tocOpen: boolean;
   onBrowseDirectory: () => void;
   onRefreshDirectory: () => void;
   selectedFile: string | null;
@@ -12,6 +14,8 @@ interface TitleBarProps {
 
 export function TitleBar({
   onToggleSidebar,
+  onToggleToc,
+  tocOpen,
   onBrowseDirectory,
   onRefreshDirectory,
   selectedFile,
@@ -58,6 +62,15 @@ export function TitleBar({
       </div>
 
       <div className="flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className={`h-7 w-7 ${tocOpen ? 'text-foreground' : 'text-muted-foreground'}`}
+          onClick={onToggleToc}
+          title="Toggle Table of Contents (Ctrl+Shift+B)"
+        >
+          <PanelRight className="h-4 w-4" />
+        </Button>
         <Button
           variant="ghost"
           size="icon"

@@ -31,6 +31,7 @@ function App() {
 
   // UI state
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [tocOpen, setTocOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
 
@@ -201,6 +202,7 @@ function App() {
   // Keyboard shortcuts
   useKeyboardShortcuts({
     onToggleSidebar: () => setSidebarOpen((prev) => !prev),
+    onToggleToc: () => setTocOpen((prev) => !prev),
     onBrowseDirectory: handleBrowseDirectory,
     onZoomIn: handleZoomIn,
     onZoomOut: handleZoomOut,
@@ -211,6 +213,8 @@ function App() {
     <div className="flex h-screen flex-col bg-background">
       <TitleBar
         onToggleSidebar={() => setSidebarOpen((prev) => !prev)}
+        onToggleToc={() => setTocOpen((prev) => !prev)}
+        tocOpen={tocOpen}
         onBrowseDirectory={handleBrowseDirectory}
         onRefreshDirectory={handleRefreshDirectory}
         selectedFile={selectedFile}
@@ -240,6 +244,7 @@ function App() {
             error={fileError}
             zoom={zoom}
             onZoomChange={setZoom}
+            tocOpen={tocOpen}
           />
         </div>
       </div>

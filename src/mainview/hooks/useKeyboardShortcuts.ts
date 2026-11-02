@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 
 interface KeyboardShortcutsOptions {
   onToggleSidebar: () => void;
+  onToggleToc: () => void;
   onBrowseDirectory: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -10,6 +11,7 @@ interface KeyboardShortcutsOptions {
 
 export function useKeyboardShortcuts({
   onToggleSidebar,
+  onToggleToc,
   onBrowseDirectory,
   onZoomIn,
   onZoomOut,
@@ -17,13 +19,15 @@ export function useKeyboardShortcuts({
 }: KeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const { ctrlKey, key } = event;
+      const { ctrlKey, shiftKey, key } = event;
 
       if (ctrlKey) {
         switch (key.toLowerCase()) {
           case 'b':
             event.preventDefault();
-            onToggleSidebar();
+            // Ctrl+Shift+B toggles the table of contents; Ctrl+B the sidebar.
+            if (shiftKey) onToggleToc();
+            else onToggleSidebar();
             break;
           case 'o':
             event.preventDefault();
@@ -48,5 +52,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onToggleSidebar, onBrowseDirectory, onZoomIn, onZoomOut, onZoomReset]);
+  }, [onToggleSidebar, onToggleToc, onBrowseDirectory, onZoomIn, onZoomOut, onZoomReset]);
 }
