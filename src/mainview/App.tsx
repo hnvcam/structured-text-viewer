@@ -93,30 +93,44 @@ function App() {
     return () => window.removeEventListener("directorySelected", handler);
   }, []);
 
+  // Path of the most recently requested file, so a slow read for a file the
+  // user has since navigated away from doesn't overwrite the current one.
+  const latestFileRef = useRef<string | null>(null);
+
+  // Read a file's content and stats into state. Existing content stays on
+  // screen until the new read completes, so refreshes don't flash or lose scroll.
+  const loadFile = useCallback(async (path: string) => {
+    latestFileRef.current = path;
+    try {
+      const result = await rpc.request.readFile({ filePath: path });
+      if (latestFileRef.current !== path) return;
+      if (result.error) {
+        setFileError(result.error);
+        setFileContent(null);
+      } else {
+        setFileError(null);
+        setFileContent(result.content);
+      }
+
+      const stats = await rpc.request.getFileStats({ filePath: path });
+      if (latestFileRef.current !== path) return;
+      if (!stats.error) {
+        setFileStats({ size: stats.size, modified: stats.modified });
+      }
+    } catch (error) {
+      if (latestFileRef.current !== path) return;
+      setFileError(`Failed to read file: ${(error as Error).message}`);
+      setFileContent(null);
+    }
+  }, []);
+
   // Handle file selection
   const handleSelectFile = useCallback(async (path: string, type: 'markdown' | 'mermaid' | 'svg') => {
     setSelectedFile(path);
     setFileType(type);
     setFileError(null);
-
-    try {
-      const result = await rpc.request.readFile({ filePath: path });
-      if (result.error) {
-        setFileError(result.error);
-        setFileContent(null);
-      } else {
-        setFileContent(result.content);
-      }
-
-      const stats = await rpc.request.getFileStats({ filePath: path });
-      if (!stats.error) {
-        setFileStats({ size: stats.size, modified: stats.modified });
-      }
-    } catch (error) {
-      setFileError(`Failed to read file: ${(error as Error).message}`);
-      setFileContent(null);
-    }
-  }, []);
+    await loadFile(path);
+  }, [loadFile]);
 
   // Handle zoom
   const handleZoomIn = useCallback(() => {
@@ -184,6 +198,18 @@ function App() {
     }
   }, [currentDirectory, expandedState, scanDirPath]);
 
+  // Viewer-toolbar refresh: re-read the open file from disk.
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefreshFile = useCallback(async () => {
+    if (!selectedFile) return;
+    setRefreshing(true);
+    try {
+      await loadFile(selectedFile);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [selectedFile, loadFile]);
+
   // Handle expanded state change
   const handleExpandStateChange = useCallback(async (state: Record<string, boolean>) => {
     const newlyExpanded = Object.entries(state).filter(
@@ -207,6 +233,7 @@ function App() {
     onZoomIn: handleZoomIn,
     onZoomOut: handleZoomOut,
     onZoomReset: handleZoomReset,
+    onRefresh: handleRefreshFile,
   });
 
   return (
@@ -245,6 +272,8 @@ function App() {
             zoom={zoom}
             onZoomChange={setZoom}
             tocOpen={tocOpen}
+            onRefresh={handleRefreshFile}
+            refreshing={refreshing}
           />
         </div>
       </div>

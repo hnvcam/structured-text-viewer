@@ -1,4 +1,4 @@
-import { BrowserWindow, BrowserView, Utils, Updater } from "electrobun/bun";
+import { BrowserWindow, BrowserView, Utils, Updater, ApplicationMenu } from "electrobun/bun";
 import type { AppRPC, FileTreeItem } from "../shared/rpc";
 import path from "path";
 import fs from "fs";
@@ -217,6 +217,15 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       getExpandedState: () => getExpandedState(),
       setExpandedState: ({ state }) => { setExpandedState(state); },
       resolveImage: ({ markdownPath, src }) => resolveImage(markdownPath, src),
+      copyToClipboard: ({ text }) => {
+        try {
+          Utils.clipboardWriteText(text);
+          return true;
+        } catch (error) {
+          console.error("Failed to write clipboard:", error);
+          return false;
+        }
+      },
     },
     messages: {
       openDirectoryDialog: async () => {
@@ -236,6 +245,43 @@ const rpc = BrowserView.defineRPC<AppRPC>({
     },
   },
 });
+
+// macOS routes Cmd+C/V/A/Z through the app's Edit menu; without one the
+// native copy/paste shortcuts do nothing in the webview. (Not supported on
+// Linux; on Windows it would add a menu bar, so the webview handles copy there.)
+if (process.platform === "darwin") {
+  ApplicationMenu.setApplicationMenu([
+    {
+      submenu: [
+        { role: "hide" },
+        { role: "hideOthers" },
+        { role: "showAll" },
+        { type: "separator" },
+        { role: "quit" },
+      ],
+    },
+    {
+      label: "Edit",
+      submenu: [
+        { role: "undo" },
+        { role: "redo" },
+        { type: "separator" },
+        { role: "cut" },
+        { role: "copy" },
+        { role: "paste" },
+        { role: "selectAll" },
+      ],
+    },
+    {
+      label: "Window",
+      submenu: [
+        { role: "minimize" },
+        { role: "zoom" },
+        { role: "close" },
+      ],
+    },
+  ]);
+}
 
 const url = await getMainViewUrl();
 

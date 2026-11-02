@@ -12,9 +12,11 @@ interface ViewerProps {
   zoom: number;
   onZoomChange: (zoom: number) => void;
   tocOpen: boolean;
+  onRefresh: () => void;
+  refreshing: boolean;
 }
 
-export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange, tocOpen }: ViewerProps) {
+export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange, tocOpen, onRefresh, refreshing }: ViewerProps) {
   if (error) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-4 p-8 text-center">
@@ -45,7 +47,7 @@ export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange,
   if (fileType === 'mermaid') {
     return (
       <div key={viewerKey} className="h-full">
-        <MermaidViewer content={content} />
+        <MermaidViewer content={content} onRefresh={onRefresh} refreshing={refreshing} />
       </div>
     );
   }
@@ -53,7 +55,7 @@ export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange,
   if (fileType === 'svg') {
     return (
       <div key={viewerKey} className="h-full">
-        <SvgViewer content={content} />
+        <SvgViewer content={content} onRefresh={onRefresh} refreshing={refreshing} />
       </div>
     );
   }
@@ -61,7 +63,7 @@ export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange,
   if (fileType === 'html') {
     return (
       <div key={viewerKey} className="h-full">
-        <HtmlViewer content={content} />
+        <HtmlViewer content={content} onRefresh={onRefresh} refreshing={refreshing} />
       </div>
     );
   }
@@ -74,6 +76,8 @@ export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange,
         zoom={zoom}
         onZoomChange={onZoomChange}
         tocOpen={tocOpen}
+        onRefresh={onRefresh}
+        refreshing={refreshing}
       />
     </div>
   );

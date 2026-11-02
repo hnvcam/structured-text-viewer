@@ -12,6 +12,8 @@ import { cn } from '@/lib/utils';
 import { rpc } from '../rpcClient';
 import { TableOfContents } from './TableOfContents';
 import { MermaidBlock } from './MermaidBlock';
+import { CodeBlock, hastText } from './CodeBlock';
+import { RefreshFileButton } from './RefreshFileButton';
 
 interface MarkdownViewerProps {
   content: string;
@@ -19,6 +21,8 @@ interface MarkdownViewerProps {
   zoom: number;
   onZoomChange: (zoom: number) => void;
   tocOpen: boolean;
+  onRefresh: () => void;
+  refreshing: boolean;
 }
 
 // localStorage key for the saved scroll position of a given file.
@@ -121,7 +125,7 @@ function MarkdownImage({
   return <img src={resolvedSrc} alt={alt} title={title} />;
 }
 
-export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen }: MarkdownViewerProps) {
+export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen, onRefresh, refreshing }: MarkdownViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Scroll-position persistence. We persist only positions produced by genuine
@@ -257,7 +261,11 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen 
             if (Array.isArray(className) && className.includes('language-mermaid')) {
               return <>{children}</>;
             }
-            return <pre {...rest}>{children}</pre>;
+            return (
+              <CodeBlock {...rest} code={hastText(node)}>
+                {children}
+              </CodeBlock>
+            );
           },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           code(props: any) {
@@ -356,6 +364,10 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen 
         >
           <ArrowDownToLine className="h-4 w-4" />
         </Button>
+
+        <div className="mx-1 h-4 w-px bg-border" />
+
+        <RefreshFileButton onRefresh={onRefresh} refreshing={refreshing} />
       </div>
 
       {/* Content + table of contents */}

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { copyText } from '@/lib/clipboard';
 
 interface KeyboardShortcutsOptions {
   onToggleSidebar: () => void;
@@ -7,6 +8,14 @@ interface KeyboardShortcutsOptions {
   onZoomIn: () => void;
   onZoomOut: () => void;
   onZoomReset: () => void;
+  onRefresh: () => void;
+}
+
+// Text fields handle their own copy natively.
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tag = target.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA' || target.isContentEditable;
 }
 
 export function useKeyboardShortcuts({
@@ -16,13 +25,32 @@ export function useKeyboardShortcuts({
   onZoomIn,
   onZoomOut,
   onZoomReset,
+  onRefresh,
 }: KeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      const { ctrlKey, shiftKey, key } = event;
+      const { ctrlKey, metaKey, shiftKey, key } = event;
+      const lowerKey = key.toLowerCase();
+
+      // Copy selected text: Cmd+C (macOS), Ctrl+C, Ctrl+Shift+C.
+      if ((ctrlKey || metaKey) && lowerKey === 'c' && !isEditableTarget(event.target)) {
+        const text = window.getSelection()?.toString() ?? '';
+        if (text) {
+          event.preventDefault();
+          void copyText(text);
+        }
+        return;
+      }
+
+      // Reload the open file: F5, Ctrl+R, Cmd+R.
+      if (key === 'F5' || ((ctrlKey || metaKey) && !shiftKey && lowerKey === 'r')) {
+        event.preventDefault();
+        onRefresh();
+        return;
+      }
 
       if (ctrlKey) {
-        switch (key.toLowerCase()) {
+        switch (lowerKey) {
           case 'b':
             event.preventDefault();
             // Ctrl+Shift+B toggles the table of contents; Ctrl+B the sidebar.
@@ -52,5 +80,5 @@ export function useKeyboardShortcuts({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onToggleSidebar, onToggleToc, onBrowseDirectory, onZoomIn, onZoomOut, onZoomReset]);
+  }, [onToggleSidebar, onToggleToc, onBrowseDirectory, onZoomIn, onZoomOut, onZoomReset, onRefresh]);
 }

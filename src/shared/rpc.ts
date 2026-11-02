@@ -20,6 +20,7 @@ export type AppRPC = {
       getExpandedState: { params: {}; response: Record<string, boolean> };
       setExpandedState: { params: { state: Record<string, boolean> }; response: void };
       resolveImage: { params: { markdownPath: string; src: string }; response: { dataUrl?: string; error?: string } };
+      copyToClipboard: { params: { text: string }; response: boolean };
     };
     messages: {
       openDirectoryDialog: {};

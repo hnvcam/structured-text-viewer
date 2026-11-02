@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { RefreshFileButton } from './RefreshFileButton';
 import { ZoomIn, ZoomOut, RotateCcw, Minimize, Hand } from 'lucide-react';
 
 interface SvgViewerProps {
   content: string;
+  onRefresh: () => void;
+  refreshing: boolean;
 }
 
-export function SvgViewer({ content }: SvgViewerProps) {
+export function SvgViewer({ content, onRefresh, refreshing }: SvgViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -89,6 +92,8 @@ export function SvgViewer({ content }: SvgViewerProps) {
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={fitToScreen} title="Fit to Screen">
           <Minimize className="h-4 w-4" />
         </Button>
+        <div className="mx-1 h-4 w-px bg-border" />
+        <RefreshFileButton onRefresh={onRefresh} refreshing={refreshing} />
         <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
           <Hand className="h-4 w-4" />
           <span>Drag to pan</span>

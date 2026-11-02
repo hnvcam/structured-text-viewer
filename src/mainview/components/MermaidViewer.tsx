@@ -2,13 +2,16 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { renderMermaid } from '@/lib/mermaid';
 import { useIsDark } from '@/hooks/useIsDark';
 import { Button } from '@/components/ui/button';
+import { RefreshFileButton } from './RefreshFileButton';
 import { ZoomIn, ZoomOut, RotateCcw, Minimize, Hand } from 'lucide-react';
 
 interface MermaidViewerProps {
   content: string;
+  onRefresh: () => void;
+  refreshing: boolean;
 }
 
-export function MermaidViewer({ content }: MermaidViewerProps) {
+export function MermaidViewer({ content, onRefresh, refreshing }: MermaidViewerProps) {
   const dark = useIsDark();
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -188,6 +191,8 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
         >
           <Minimize className="h-4 w-4" />
         </Button>
+        <div className="mx-1 h-4 w-px bg-border" />
+        <RefreshFileButton onRefresh={onRefresh} refreshing={refreshing} />
         <div className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
           <Hand className="h-4 w-4" />
           <span>Drag to pan</span>

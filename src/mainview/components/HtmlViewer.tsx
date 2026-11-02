@@ -1,12 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
+import { RefreshFileButton } from './RefreshFileButton';
 import { ZoomIn, ZoomOut, RotateCcw, Hand, MousePointer } from 'lucide-react';
 
 interface HtmlViewerProps {
   content: string;
+  onRefresh: () => void;
+  refreshing: boolean;
 }
 
-export function HtmlViewer({ content }: HtmlViewerProps) {
+export function HtmlViewer({ content, onRefresh, refreshing }: HtmlViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
@@ -59,6 +62,8 @@ export function HtmlViewer({ content }: HtmlViewerProps) {
         <Button variant="outline" size="icon" className="h-8 w-8" onClick={handleReset} title="Reset View">
           <RotateCcw className="h-4 w-4" />
         </Button>
+        <div className="mx-1 h-4 w-px bg-border" />
+        <RefreshFileButton onRefresh={onRefresh} refreshing={refreshing} />
         <div className="ml-2 h-4 w-px bg-border" />
         <Button
           variant={interactMode ? 'default' : 'outline'}
