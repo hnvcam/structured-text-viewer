@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
-import mermaid from 'mermaid';
+import { renderMermaid } from '@/lib/mermaid';
+import { useIsDark } from '@/hooks/useIsDark';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, RotateCcw, Minimize, Hand } from 'lucide-react';
 
@@ -8,6 +9,7 @@ interface MermaidViewerProps {
 }
 
 export function MermaidViewer({ content }: MermaidViewerProps) {
+  const dark = useIsDark();
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
@@ -19,14 +21,8 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
   const isMountedRef = useRef(true);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Initialize mermaid and setup cleanup
+  // Setup cleanup
   useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: 'default',
-      securityLevel: 'loose',
-    });
-
     isMountedRef.current = true;
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -57,8 +53,7 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
     if (!isMountedRef.current || abortController.signal.aborted) return;
 
     try {
-      const uniqueId = `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      const { svg } = await mermaid.render(uniqueId, content);
+      const svg = await renderMermaid(content, dark);
 
       if (!isMountedRef.current || abortController.signal.aborted) return;
 
@@ -85,7 +80,7 @@ export function MermaidViewer({ content }: MermaidViewerProps) {
         `;
       }
     }
-  }, [content]);
+  }, [content, dark]);
 
   useEffect(() => {
     const timer = setTimeout(renderDiagram, 50);

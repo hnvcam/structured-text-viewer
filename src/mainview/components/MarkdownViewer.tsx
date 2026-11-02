@@ -1,18 +1,17 @@
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { defaultUrlTransform } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import { remarkAlert } from 'remark-github-blockquote-alert';
 import rehypeRaw from 'rehype-raw';
 import rehypeKatex from 'rehype-katex';
 import rehypeSlug from 'rehype-slug';
-import { useEffect, useRef, useState, useCallback } from 'react';
-import mermaid from 'mermaid';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, RotateCcw, ImageOff, ArrowUpToLine, ArrowDownToLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { rpc } from '../rpcClient';
-import { ExternalLinkPreview } from './ExternalLinkPreview';
 import { TableOfContents } from './TableOfContents';
+import { MermaidBlock } from './MermaidBlock';
 
 interface MarkdownViewerProps {
   content: string;
@@ -25,6 +24,24 @@ interface MarkdownViewerProps {
 // localStorage key for the saved scroll position of a given file.
 function scrollKey(filePath: string): string {
   return `scrollPos:${filePath}`;
+}
+
+// Schemes never handed to the OS: script/inline content, local files, and the
+// app's own internal schemes.
+const BLOCKED_SCHEMES = new Set(['javascript', 'vbscript', 'data', 'blob', 'file', 'about', 'views']);
+
+function urlScheme(url: string): string | null {
+  const m = /^([a-z][a-z0-9+.-]*):/i.exec(url);
+  return m ? m[1].toLowerCase() : null;
+}
+
+// react-markdown's default transform blanks out any scheme it doesn't know
+// (vscode:, cursor:, slack:, ...). Keep those so they can be opened by the OS,
+// and fall back to the default sanitizer for everything else.
+function urlTransform(url: string): string {
+  const scheme = urlScheme(url);
+  if (scheme && !BLOCKED_SCHEMES.has(scheme)) return url;
+  return defaultUrlTransform(url);
 }
 
 // Protocols the webview can load directly without disk resolution.
@@ -106,12 +123,6 @@ function MarkdownImage({
 
 export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen }: MarkdownViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [mermaidId, setMermaidId] = useState(0);
-  const isMountedRef = useRef(true);
-  const abortControllerRef = useRef<AbortController | null>(null);
-
-  // External-link preview overlay state.
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   // Scroll-position persistence. We persist only positions produced by genuine
   // user scrolling — programmatic restores never overwrite the saved value, so
@@ -176,8 +187,8 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen 
 
   // Handle clicks on rendered markdown links:
   //  - in-page anchors (#slug or self-URL#slug) → smooth scroll to the heading
-  //  - http/https → open the in-app preview overlay
-  //  - mailto/other → hand off to the system
+  //  - any other non-blocked scheme (http/https, mailto, vscode, ...) → open
+  //    with the system default handler (browser, mail client, VS Code, ...)
   const handleLinkClick = useCallback(
     (e: React.MouseEvent<HTMLAnchorElement>, href?: string) => {
       if (!href) return;
@@ -203,105 +214,83 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen 
         return;
       }
 
-      if (url.protocol === 'http:' || url.protocol === 'https:') {
-        e.preventDefault();
-        setPreviewUrl(url.href);
-        return;
-      }
-
-      if (url.protocol === 'mailto:') {
-        e.preventDefault();
-        rpc.request.openExternal({ url: href });
-        return;
-      }
-
-      // Anything else: prevent navigating the app webview away.
+      // Never let a link navigate the app webview itself.
       e.preventDefault();
+
+      const scheme = urlScheme(href);
+      if (scheme && !BLOCKED_SCHEMES.has(scheme)) {
+        rpc.request.openExternal({ url: href });
+      }
     },
     []
   );
 
-  // Initialize mermaid
-  useEffect(() => {
-    mermaid.initialize({
-      startOnLoad: false,
-      theme: 'default',
-      securityLevel: 'loose',
-    });
-  }, []);
-
-  // Reset mount state and abort pending renders on content change
-  useEffect(() => {
-    isMountedRef.current = true;
-    
-    // Abort any pending renders
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-    
-    return () => {
-      isMountedRef.current = false;
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-      // Clear all mermaid elements on unmount
-      const elements = containerRef.current?.querySelectorAll('.mermaid');
-      if (elements) {
-        elements.forEach(el => {
-          el.removeAttribute('data-processed');
-          const pre = el.parentElement;
-          if (pre) {
-            const code = pre.querySelector('code');
-            if (code && code.textContent) {
-              el.textContent = code.textContent;
+  // Memoized so re-renders that don't change the document (zoom, outline
+  // toggle, ...) don't rebuild the markdown subtree and remount diagrams.
+  const renderedMarkdown = useMemo(
+    () => (
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm, remarkMath, remarkAlert]}
+        rehypePlugins={[rehypeRaw, rehypeKatex, rehypeSlug]}
+        urlTransform={urlTransform}
+        components={{
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          a(props: any) {
+            const { href, children, node, ...rest } = props;
+            void node;
+            return (
+              <a
+                {...rest}
+                href={href}
+                onClick={(e) => handleLinkClick(e, href)}
+              >
+                {children}
+              </a>
+            );
+          },
+          // Mermaid blocks render as diagrams, not code: drop the <pre> wrapper so
+          // its monospace/white-space styling doesn't leak into the diagram.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          pre(props: any) {
+            const { children, node, ...rest } = props;
+            const className = node?.children?.[0]?.properties?.className;
+            if (Array.isArray(className) && className.includes('language-mermaid')) {
+              return <>{children}</>;
             }
-          }
-        });
-      }
-    };
-  }, [content]);
+            return <pre {...rest}>{children}</pre>;
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          code(props: any) {
+            const { className, children } = props;
+            const match = /language-(\w+)/.exec(className || '');
+            const isMermaid = match && match[1] === 'mermaid';
 
-  const renderMermaid = useCallback(async () => {
-    const abortController = abortControllerRef.current;
-    if (!isMountedRef.current || !abortController) return;
+            if (isMermaid) {
+              return <MermaidBlock source={String(children).replace(/\n$/, '')} />;
+            }
 
-    const elements = containerRef.current?.querySelectorAll('.mermaid');
-    if (!elements || elements.length === 0) return;
-
-    for (let i = 0; i < elements.length; i++) {
-      if (!isMountedRef.current || abortController.signal.aborted) break;
-
-      const element = elements[i] as HTMLElement;
-      if (element.getAttribute('data-processed') === 'true') continue;
-
-      const graphDefinition = element.textContent?.trim() || '';
-      if (!graphDefinition) continue;
-
-      try {
-        const renderId = `mermaid-md-${mermaidId}-${i}-${Date.now()}`;
-        const { svg } = await mermaid.render(renderId, graphDefinition);
-        
-        if (!isMountedRef.current || abortController.signal.aborted) return;
-        
-        element.innerHTML = svg;
-        element.setAttribute('data-processed', 'true');
-      } catch (error) {
-        if (!isMountedRef.current || abortController.signal.aborted) return;
-        console.error('Mermaid render error:', error);
-        element.innerHTML = `<div class="text-destructive text-sm">Failed to render diagram</div>`;
-      }
-    }
-    
-    if (isMountedRef.current && !abortController.signal.aborted) {
-      setMermaidId(prev => prev + elements.length);
-    }
-  }, [mermaidId]);
-
-  useEffect(() => {
-    const timer = setTimeout(renderMermaid, 50);
-    return () => clearTimeout(timer);
-  }, [renderMermaid]);
+            return (
+              <code className={className}>{children}</code>
+            );
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          img(props: any) {
+            return (
+              <MarkdownImage
+                src={props.src}
+                alt={props.alt}
+                title={props.title}
+                markdownPath={filePath}
+              />
+            );
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
+    ),
+    [content, filePath, handleLinkClick]
+  );
 
   const handleWheel = (e: React.WheelEvent) => {
     userInteractedRef.current = true;
@@ -383,63 +372,12 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen 
           className={cn('markdown-content', 'break-words')}
           style={{ wordBreak: 'break-word' }}
         >
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm, remarkMath, remarkAlert]}
-            rehypePlugins={[rehypeRaw, rehypeKatex, rehypeSlug]}
-            components={{
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              a(props: any) {
-                const { href, children, node, ...rest } = props;
-                void node;
-                return (
-                  <a
-                    {...rest}
-                    href={href}
-                    onClick={(e) => handleLinkClick(e, href)}
-                  >
-                    {children}
-                  </a>
-                );
-              },
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              code(props: any) {
-                const { className, children } = props;
-                const match = /language-(\w+)/.exec(className || '');
-                const isMermaid = match && match[1] === 'mermaid';
-
-                if (isMermaid) {
-                  return (
-                    <div className="mermaid-container my-4 rounded-lg border bg-card p-4">
-                      <div className="mermaid">{String(children).replace(/\n$/, '')}</div>
-                    </div>
-                  );
-                }
-
-                return (
-                  <code className={className}>{children}</code>
-                );
-              },
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              img(props: any) {
-                return (
-                  <MarkdownImage
-                    src={props.src}
-                    alt={props.alt}
-                    title={props.title}
-                    markdownPath={filePath}
-                  />
-                );
-              },
-            }}
-          >
-            {content}
-          </ReactMarkdown>
+          {renderedMarkdown}
         </div>
       </div>
         {tocOpen && <TableOfContents containerRef={containerRef} content={content} />}
       </div>
 
-      <ExternalLinkPreview url={previewUrl} onClose={() => setPreviewUrl(null)} />
     </div>
   );
 }
