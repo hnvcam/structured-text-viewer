@@ -34,6 +34,7 @@ tsconfig.json           — TS config (@/* → src/mainview/*)
 bun run dev          # vite build + electrobun dev
 bun run dev:hmr      # Vite HMR + electrobun dev concurrently
 bun run build:win    # vite build + electrobun build --env=stable (produces installer)
+bun run build:mac    # same, on macOS → build/stable-macos-arm64/*.app + artifacts/*.dmg (unsigned)
 bun run typecheck    # tsc --noEmit
 ```
 

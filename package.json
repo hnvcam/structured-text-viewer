@@ -12,7 +12,8 @@
     "build": "vite build && electrobun build --env=stable",
     "build:win": "vite build && electrobun build --env=stable",
     "build:linux": "vite build && electrobun build --env=stable",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "build:mac": "vite build && electrobun build --env=stable"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.4",

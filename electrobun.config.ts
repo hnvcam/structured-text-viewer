@@ -19,6 +19,14 @@ export default {
     win: {
       defaultRenderer: "native",
     },
+    mac: {
+      // Local, unsigned build. Set both to true (with Apple Developer
+      // credentials in env) to produce a distributable signed app.
+      codesign: false,
+      notarize: false,
+      bundleCEF: false,
+      defaultRenderer: "native",
+    },
     linux: {
       defaultRenderer: "cef",
       bundleCEF: true,
