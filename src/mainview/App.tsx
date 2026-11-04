@@ -34,6 +34,30 @@ function App() {
   const [tocOpen, setTocOpen] = useState(true);
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [zoom, setZoom] = useState(DEFAULT_ZOOM);
+  // Don't write the font size back until the saved value has been loaded,
+  // otherwise the default would overwrite the user's setting on startup.
+  const zoomLoadedRef = useRef(false);
+
+  // Restore the saved font size
+  useEffect(() => {
+    rpc.request.getFontSize({})
+      .then((size) => {
+        if (size != null) setZoom(Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(size))));
+      })
+      .catch((error) => console.error('Failed to load font size:', error))
+      .finally(() => { zoomLoadedRef.current = true; });
+  }, []);
+
+  // Persist font size changes (debounced — Ctrl+wheel fires many steps quickly)
+  useEffect(() => {
+    if (!zoomLoadedRef.current) return;
+    const timer = setTimeout(() => {
+      rpc.request.setFontSize({ size: zoom }).catch((error) =>
+        console.error('Failed to save font size:', error)
+      );
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [zoom]);
 
   // Load last directory on mount
   useEffect(() => {

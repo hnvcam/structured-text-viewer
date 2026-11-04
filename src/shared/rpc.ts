@@ -19,6 +19,8 @@ export type AppRPC = {
       openExternal: { params: { url: string }; response: void };
       getExpandedState: { params: {}; response: Record<string, boolean> };
       setExpandedState: { params: { state: Record<string, boolean> }; response: void };
+      getFontSize: { params: {}; response: number | null };
+      setFontSize: { params: { size: number }; response: void };
       resolveImage: { params: { markdownPath: string; src: string }; response: { dataUrl?: string; error?: string } };
       copyToClipboard: { params: { text: string }; response: boolean };
     };

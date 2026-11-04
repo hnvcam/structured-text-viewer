@@ -43,6 +43,7 @@ const CONFIG_FILE = path.join(CONFIG_DIR, "config.json");
 const RECENT_DIRS_KEY = "recentDirectories";
 const LAST_DIR_KEY = "lastOpenedDirectory";
 const EXPANDED_STATE_KEY = "expandedState";
+const FONT_SIZE_KEY = "fontSize";
 
 function ensureConfigDir(): void {
   if (!fs.existsSync(CONFIG_DIR)) {
@@ -106,6 +107,18 @@ function getExpandedState(): Record<string, boolean> {
 function setExpandedState(state: Record<string, boolean>): void {
   const store = loadStore();
   store[EXPANDED_STATE_KEY] = state;
+  saveStore(store);
+}
+
+function getFontSize(): number | null {
+  const value = loadStore()[FONT_SIZE_KEY];
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function setFontSize(size: number): void {
+  if (!Number.isFinite(size)) return;
+  const store = loadStore();
+  store[FONT_SIZE_KEY] = size;
   saveStore(store);
 }
 
@@ -216,6 +229,8 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       openExternal: ({ url }) => { Utils.openExternal(url); },
       getExpandedState: () => getExpandedState(),
       setExpandedState: ({ state }) => { setExpandedState(state); },
+      getFontSize: () => getFontSize(),
+      setFontSize: ({ size }) => { setFontSize(size); },
       resolveImage: ({ markdownPath, src }) => resolveImage(markdownPath, src),
       copyToClipboard: ({ text }) => {
         try {

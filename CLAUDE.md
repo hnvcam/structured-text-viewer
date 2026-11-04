@@ -63,6 +63,8 @@ bun run typecheck    # tsc --noEmit
 | `getExpandedState` | `{}` | `Record<string, boolean>` |
 | `setExpandedState` | `{ state }` | `void` |
 | `resolveImage` | `{ markdownPath, src }` | `{ dataUrl?, error? }` |
+| `getFontSize` | `{}` | `number \| null` |
+| `setFontSize` | `{ size }` | `void` |
 
 ## Gotchas
 
