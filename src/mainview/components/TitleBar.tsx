@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { Menu, Sun, Moon, FolderOpen, RefreshCw, PanelRight } from 'lucide-react';
+import { Menu, Sun, Moon, RefreshCw, PanelRight } from 'lucide-react';
+import { WorkspaceTabs, WorkspaceTab } from './WorkspaceTabs';
 
 interface TitleBarProps {
   onToggleSidebar: () => void;
@@ -7,7 +8,10 @@ interface TitleBarProps {
   tocOpen: boolean;
   onBrowseDirectory: () => void;
   onRefreshDirectory: () => void;
-  selectedFile: string | null;
+  tabs: WorkspaceTab[];
+  activeDir: string | null;
+  onSelectWorkspace: (dirPath: string) => void;
+  onCloseWorkspace: (dirPath: string) => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 }
@@ -18,13 +22,16 @@ export function TitleBar({
   tocOpen,
   onBrowseDirectory,
   onRefreshDirectory,
-  selectedFile,
+  tabs,
+  activeDir,
+  onSelectWorkspace,
+  onCloseWorkspace,
   theme,
   onToggleTheme,
 }: TitleBarProps) {
   return (
-    <div className="flex h-8 items-center justify-between border-b bg-background px-2">
-      <div className="flex items-center gap-1">
+    <div className="flex h-8 items-center justify-between gap-1 border-b bg-background px-2">
+      <div className="flex flex-shrink-0 items-center gap-1">
         <Button
           variant="ghost"
           size="icon"
@@ -43,25 +50,17 @@ export function TitleBar({
         >
           <RefreshCw className="h-4 w-4" />
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-7 w-7"
-          onClick={onBrowseDirectory}
-          title="Browse Directory (Ctrl+O)"
-        >
-          <FolderOpen className="h-4 w-4" />
-        </Button>
       </div>
 
-      <div
-        className="flex-1 truncate text-center text-xs text-muted-foreground select-none"
-        title={selectedFile || undefined}
-      >
-        {selectedFile || 'Structured Text Viewer'}
-      </div>
+      <WorkspaceTabs
+        tabs={tabs}
+        activeDir={activeDir}
+        onSelect={onSelectWorkspace}
+        onClose={onCloseWorkspace}
+        onOpen={onBrowseDirectory}
+      />
 
-      <div className="flex items-center gap-1">
+      <div className="flex flex-shrink-0 items-center gap-1">
         <Button
           variant="ghost"
           size="icon"

@@ -12,7 +12,10 @@ export interface FileStats {
   path: string;
 }
 
-export type FileType = 'markdown' | 'mermaid' | 'svg' | 'html' | null;
+// A file type the viewer can open (every tree item type except folders).
+export type ViewableFileType = Exclude<FileTreeItem['type'], 'folder'>;
+
+export type FileType = ViewableFileType | null;
 
 export interface AppState {
   currentDirectory: string | null;
@@ -22,4 +25,15 @@ export interface AppState {
   zoom: number;
   theme: 'light' | 'dark' | 'system';
   expandedFolders: Record<string, boolean>;
+}
+
+// A folder open as a tab, with its own tree and open file.
+export interface Workspace {
+  dirPath: string;
+  treeItems: FileTreeItem[];
+  selectedFile: string | null;
+  fileType: FileType;
+  content: string | null;
+  error: string | null;
+  stats: { size: number; modified: string } | null;
 }

@@ -38,6 +38,34 @@ bun run build:mac    # same, on macOS → build/stable-macos-arm64/*.app + artif
 bun run typecheck    # tsc --noEmit
 ```
 
+## After every change: rebuild AND install locally (required)
+The user runs the installed app, not the dev build — a fix is not done until it's installed.
+After any code change, always (without being asked):
+1. `bun run typecheck`
+2. Rebuild for the current platform (`bun run build:mac` on macOS, `bun run build:linux` on Linux; `bun run build:win` on Windows — no longer actively used)
+3. Install it, replacing the old copy. On macOS:
+```bash
+osascript -e 'quit app "Structured Text Viewer"' 2>/dev/null; sleep 2
+pkill -f "/Applications/Structured Text Viewer.app" 2>/dev/null
+rm -rf "/Applications/Structured Text Viewer.app"
+ditto "build/stable-macos-arm64/Structured Text Viewer.app" "/Applications/Structured Text Viewer.app"
+xattr -dr com.apple.quarantine "/Applications/Structured Text Viewer.app" 2>/dev/null
+open "/Applications/Structured Text Viewer.app"
+```
+   On Linux (not yet verified — confirm the bundle/launcher paths on the first install and update this block):
+```bash
+pkill -f "structured-text-viewer/bin/launcher" 2>/dev/null; sleep 1
+BUNDLE=$(find build -maxdepth 2 -mindepth 2 -type d -path "build/stable-linux-*" | head -1)
+rm -rf ~/.local/opt/structured-text-viewer && mkdir -p ~/.local/opt ~/.local/share/applications
+cp -a "$BUNDLE" ~/.local/opt/structured-text-viewer
+sed "s|__LAUNCHER__|$HOME/.local/opt/structured-text-viewer/bin/launcher|" src/StructuredTextViewer.desktop \
+  > ~/.local/share/applications/StructuredTextViewer.desktop
+update-desktop-database ~/.local/share/applications 2>/dev/null
+nohup ~/.local/opt/structured-text-viewer/bin/launcher >/dev/null 2>&1 &
+```
+   On Windows (legacy), run the installer produced in `artifacts/`.
+4. Confirm the installed copy is the new one (e.g. grep a new symbol in `Contents/Resources/app/bun/index.js`) and that it launches.
+
 ## Build flow
 1. Vite builds `src/mainview/` → `dist/` (hashed assets)
 2. Electrobun bundles `src/bun/index.ts` and copies `dist/` → `views/mainview/`
@@ -56,6 +84,8 @@ bun run typecheck    # tsc --noEmit
 | `selectDirectory` | `{}` | `string \| null` |
 | `getRecentDirectories` | `{}` | `string[]` |
 | `getLastDirectory` | `{}` | `string \| null` |
+| `getWorkspaces` | `{}` | `{ directories, active }` — folders open as tabs |
+| `setWorkspaces` | `{ directories, active }` | `void` |
 | `readFile` | `{ filePath }` | `{ content, error? }` |
 | `getFileStats` | `{ filePath }` | `{ size, modified, error? }` |
 | `scanDirectory` | `{ dirPath }` | `FileTreeItem[]` |

@@ -149,6 +149,83 @@
   @apply bg-muted font-semibold;
 }
 
+/* Tables (MarkdownTable): content-aware column widths + resizable columns.
+   The wrapper scrolls sideways when the columns can't fit. */
+.markdown-content .md-table-wrap {
+  position: relative;
+  overflow-x: auto;
+  margin: 1.5em 0 1rem;
+}
+
+.markdown-content .md-table-wrap > table {
+  margin: 0;
+}
+
+.markdown-content .md-table-wrap > table:not([data-measure]) :is(th, td) {
+  overflow-wrap: anywhere;
+}
+
+/* Measuring passes: the browser's own max-content / min-content column widths. */
+.markdown-content .md-table-wrap > table[data-measure] {
+  table-layout: auto;
+}
+
+.markdown-content .md-table-wrap > table[data-measure] :is(th, td) {
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
+.markdown-content .md-table-wrap > table[data-measure="max"] {
+  width: max-content;
+}
+
+.markdown-content .md-table-wrap > table[data-measure="max"] :is(th, td) {
+  white-space: nowrap;
+}
+
+.markdown-content .md-table-wrap > table[data-measure="min"] {
+  width: min-content;
+}
+
+.md-table-em {
+  position: absolute;
+  width: 1em;
+  height: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.md-col-resizer {
+  position: absolute;
+  z-index: 1;
+  width: 8px;
+  cursor: col-resize;
+  touch-action: none;
+}
+
+.md-col-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: transparent;
+  transition: background-color 0.1s;
+}
+
+.md-col-resizer:hover::after,
+.md-col-resizer.active::after {
+  background: hsl(var(--primary));
+}
+
+body.col-resizing,
+body.col-resizing * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
 .markdown-content img {
   @apply max-w-full h-auto rounded;
 }
@@ -225,3 +302,22 @@
 .dark .markdown-content .markdown-alert-warning { --alert-accent: 40 75% 49%; }
 .dark .markdown-content .markdown-alert-caution { --alert-accent: 4 90% 63%; }
 
+
+/* In-document search highlights (CSS Custom Highlight API, see lib/textSearch.ts) */
+::highlight(search-results) {
+  background-color: rgb(250 204 21 / 0.45);
+  color: inherit;
+}
+
+::highlight(search-current) {
+  background-color: rgb(249 115 22);
+  color: #fff;
+}
+
+/* Scrollable without a visible scrollbar (workspace tab strip) */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

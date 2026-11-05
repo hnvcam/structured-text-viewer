@@ -2,18 +2,18 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { TreeView } from './TreeView';
 import { FolderOpen, HardDrive, RefreshCw } from 'lucide-react';
-import { FileTreeItem } from '@/types';
+import { ViewableFileType, Workspace } from '@/types';
+import { cn } from '@/lib/utils';
 
 interface SidebarProps {
   isOpen: boolean;
   width: number;
-  currentDirectory: string | null;
-  treeItems: FileTreeItem[];
-  selectedFile: string | null;
+  workspaces: Workspace[];
+  activeDir: string | null;
   expandedState: Record<string, boolean>;
   onBrowse: () => void;
   onRefresh: () => void;
-  onSelectFile: (path: string, type: 'markdown' | 'mermaid' | 'svg') => void;
+  onSelectFile: (dirPath: string, path: string, type: ViewableFileType) => void;
   onResize: (width: number) => void;
   onExpandStateChange: (state: Record<string, boolean>) => void;
 }
@@ -21,9 +21,8 @@ interface SidebarProps {
 export function Sidebar({
   isOpen,
   width,
-  currentDirectory,
-  treeItems,
-  selectedFile,
+  workspaces,
+  activeDir,
   expandedState,
   onBrowse,
   onRefresh,
@@ -53,6 +52,8 @@ export function Sidebar({
   if (!isOpen) {
     return null;
   }
+
+  const currentDirectory = activeDir;
 
   return (
     <div
@@ -94,7 +95,7 @@ export function Sidebar({
             e.stopPropagation();
             onBrowse();
           }}
-          title="Browse Directory"
+          title="Open Folder in New Tab (Ctrl+O)"
         >
           <FolderOpen className="h-4 w-4" />
         </Button>
@@ -103,22 +104,27 @@ export function Sidebar({
       {/* Tree view */}
       <div className="flex-1 overflow-hidden flex flex-row">
         <ScrollArea className="flex-1 min-h-0 flex flex-row">
-          {currentDirectory ? (
-            treeItems.length > 0 ? (
-              <TreeView
-                items={treeItems}
-                selectedFile={selectedFile}
-                onSelectFile={onSelectFile}
-                expandedState={expandedState}
-                onExpandStateChange={onExpandStateChange}
-              />
-            ) : (
-              <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground">
-                <HardDrive className="h-8 w-8 opacity-50" />
-                <p className="text-sm">No .md or .mmd files found</p>
-              </div>
-            )
-          ) : (
+          {/* Every tab's tree stays mounted (inactive ones hidden) so expansion
+              and scroll position survive switching tabs. */}
+          {workspaces.map((ws) => (
+            <div key={ws.dirPath} className={cn(ws.dirPath === activeDir ? 'contents' : 'hidden')}>
+              {ws.treeItems.length > 0 ? (
+                <TreeView
+                  items={ws.treeItems}
+                  selectedFile={ws.selectedFile}
+                  onSelectFile={(path, type) => onSelectFile(ws.dirPath, path, type)}
+                  expandedState={expandedState}
+                  onExpandStateChange={onExpandStateChange}
+                />
+              ) : (
+                <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground">
+                  <HardDrive className="h-8 w-8 opacity-50" />
+                  <p className="text-sm">No .md or .mmd files found</p>
+                </div>
+              )}
+            </div>
+          ))}
+          {!currentDirectory && (
             <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground">
               <HardDrive className="h-8 w-8 opacity-50" />
               <p className="text-sm">Select a directory to browse</p>

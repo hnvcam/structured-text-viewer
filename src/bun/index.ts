@@ -44,6 +44,8 @@ const RECENT_DIRS_KEY = "recentDirectories";
 const LAST_DIR_KEY = "lastOpenedDirectory";
 const EXPANDED_STATE_KEY = "expandedState";
 const FONT_SIZE_KEY = "fontSize";
+const OPEN_DIRS_KEY = "openDirectories";
+const ACTIVE_DIR_KEY = "activeDirectory";
 
 function ensureConfigDir(): void {
   if (!fs.existsSync(CONFIG_DIR)) {
@@ -96,6 +98,42 @@ function getLastOpenedDirectory(): string | null {
 function setLastOpenedDirectory(dirPath: string): void {
   const store = loadStore();
   store[LAST_DIR_KEY] = dirPath;
+  saveStore(store);
+}
+
+function isDirectory(dirPath: string): boolean {
+  try {
+    return fs.statSync(dirPath).isDirectory();
+  } catch {
+    return false;
+  }
+}
+
+// Folders open as tabs. Falls back to the single last-opened directory from
+// before tabs existed; folders that no longer exist are dropped.
+function getWorkspaces(): { directories: string[]; active: string | null } {
+  const store = loadStore();
+  const saved = store[OPEN_DIRS_KEY];
+  let directories: string[];
+  if (Array.isArray(saved)) {
+    directories = saved.filter((d): d is string => typeof d === "string");
+  } else {
+    const last = store[LAST_DIR_KEY];
+    directories = typeof last === "string" ? [last] : [];
+  }
+  directories = directories.filter(isDirectory);
+  const active = store[ACTIVE_DIR_KEY];
+  return {
+    directories,
+    active: typeof active === "string" && directories.includes(active) ? active : directories[0] ?? null,
+  };
+}
+
+function setWorkspaces(directories: string[], active: string | null): void {
+  const store = loadStore();
+  store[OPEN_DIRS_KEY] = directories;
+  store[ACTIVE_DIR_KEY] = active;
+  if (active) store[LAST_DIR_KEY] = active;
   saveStore(store);
 }
 
@@ -209,6 +247,8 @@ const rpc = BrowserView.defineRPC<AppRPC>({
     requests: {
       getRecentDirectories: () => getRecentDirectories(),
       getLastDirectory: () => getLastOpenedDirectory(),
+      getWorkspaces: () => getWorkspaces(),
+      setWorkspaces: ({ directories, active }) => { setWorkspaces(directories, active); },
       readFile: ({ filePath }) => {
         try {
           const content = fs.readFileSync(filePath, "utf-8");

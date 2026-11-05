@@ -13,6 +13,8 @@ export type AppRPC = {
     requests: {
       getRecentDirectories: { params: {}; response: string[] };
       getLastDirectory: { params: {}; response: string | null };
+      getWorkspaces: { params: {}; response: { directories: string[]; active: string | null } };
+      setWorkspaces: { params: { directories: string[]; active: string | null }; response: void };
       readFile: { params: { filePath: string }; response: { content: string; error?: string } };
       getFileStats: { params: { filePath: string }; response: { size: number; modified: string; error?: string } };
       scanDirectory: { params: { dirPath: string }; response: FileTreeItem[] };

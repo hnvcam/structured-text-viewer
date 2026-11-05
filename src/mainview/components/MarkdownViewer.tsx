@@ -13,7 +13,9 @@ import { rpc } from '../rpcClient';
 import { TableOfContents } from './TableOfContents';
 import { MermaidBlock } from './MermaidBlock';
 import { CodeBlock, hastText } from './CodeBlock';
+import { MarkdownTable } from './MarkdownTable';
 import { RefreshFileButton } from './RefreshFileButton';
+import { SearchBar } from './SearchBar';
 
 interface MarkdownViewerProps {
   content: string;
@@ -127,12 +129,17 @@ function MarkdownImage({
 
 export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen, onRefresh, refreshing }: MarkdownViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
 
   // Scroll-position persistence. We persist only positions produced by genuine
   // user scrolling — programmatic restores never overwrite the saved value, so
   // layout shifts during restore can't clobber it.
   const userInteractedRef = useRef(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const markUserScrolled = useCallback(() => {
+    userInteractedRef.current = true;
+  }, []);
 
   // Smoothly scroll the content container to the top or bottom. These are
   // intentional user navigations, so the resulting position should persist.
@@ -282,6 +289,10 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen,
             );
           },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          table(props: any) {
+            return <MarkdownTable {...props} />;
+          },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           img(props: any) {
             return (
               <MarkdownImage
@@ -368,6 +379,8 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen,
         <div className="mx-1 h-4 w-px bg-border" />
 
         <RefreshFileButton onRefresh={onRefresh} refreshing={refreshing} />
+
+        <SearchBar contentRef={contentRef} scrollRef={containerRef} onNavigate={markUserScrolled} />
       </div>
 
       {/* Content + table of contents */}
@@ -381,6 +394,7 @@ export function MarkdownViewer({ content, filePath, zoom, onZoomChange, tocOpen,
         style={{ fontSize: `${zoom}px` }}
       >
         <div
+          ref={contentRef}
           className={cn('markdown-content', 'break-words')}
           style={{ wordBreak: 'break-word' }}
         >

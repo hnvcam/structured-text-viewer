@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { copyText } from '@/lib/clipboard';
+import { FOCUS_SEARCH_EVENT } from '@/components/SearchBar';
 
 interface KeyboardShortcutsOptions {
   onToggleSidebar: () => void;
@@ -9,6 +10,10 @@ interface KeyboardShortcutsOptions {
   onZoomOut: () => void;
   onZoomReset: () => void;
   onRefresh: () => void;
+  onCloseTab: () => void;
+  onCycleTab: (delta: 1 | -1) => void;
+  // Index into the open tabs; -1 means the last tab.
+  onSelectTab: (index: number) => void;
 }
 
 // Text fields handle their own copy natively.
@@ -26,6 +31,9 @@ export function useKeyboardShortcuts({
   onZoomOut,
   onZoomReset,
   onRefresh,
+  onCloseTab,
+  onCycleTab,
+  onSelectTab,
 }: KeyboardShortcutsOptions) {
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -42,10 +50,35 @@ export function useKeyboardShortcuts({
         return;
       }
 
+      // Find in the open file: Cmd+S / Ctrl+S (and the conventional Cmd+F / Ctrl+F).
+      if ((ctrlKey || metaKey) && !shiftKey && (lowerKey === 's' || lowerKey === 'f')) {
+        event.preventDefault();
+        window.dispatchEvent(new CustomEvent(FOCUS_SEARCH_EVENT));
+        return;
+      }
+
       // Reload the open file: F5, Ctrl+R, Cmd+R.
       if (key === 'F5' || ((ctrlKey || metaKey) && !shiftKey && lowerKey === 'r')) {
         event.preventDefault();
         onRefresh();
+        return;
+      }
+
+      // Folder tabs: Ctrl+Tab / Ctrl+Shift+Tab cycle, Ctrl/Cmd+1..8 jump,
+      // Ctrl/Cmd+9 goes to the last tab, Ctrl+W closes (Cmd+W closes the window).
+      if (ctrlKey && key === 'Tab') {
+        event.preventDefault();
+        onCycleTab(shiftKey ? -1 : 1);
+        return;
+      }
+      if ((ctrlKey || metaKey) && !shiftKey && /^[1-9]$/.test(key)) {
+        event.preventDefault();
+        onSelectTab(key === '9' ? -1 : Number(key) - 1);
+        return;
+      }
+      if (ctrlKey && !metaKey && !shiftKey && lowerKey === 'w') {
+        event.preventDefault();
+        onCloseTab();
         return;
       }
 
@@ -80,5 +113,16 @@ export function useKeyboardShortcuts({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onToggleSidebar, onToggleToc, onBrowseDirectory, onZoomIn, onZoomOut, onZoomReset, onRefresh]);
+  }, [
+    onToggleSidebar,
+    onToggleToc,
+    onBrowseDirectory,
+    onZoomIn,
+    onZoomOut,
+    onZoomReset,
+    onRefresh,
+    onCloseTab,
+    onCycleTab,
+    onSelectTab,
+  ]);
 }

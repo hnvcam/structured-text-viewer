@@ -6,28 +6,66 @@ import { StatusBar } from './components/StatusBar';
 import { Separator } from './components/ui/separator';
 import { useTheme } from './hooks/useTheme';
 import { useKeyboardShortcuts } from './hooks/useKeyboardShortcuts';
-import { FileTreeItem, FileType } from './types';
+import { FileTreeItem, ViewableFileType, Workspace } from './types';
 import { rpc } from './rpcClient';
+import { isWithin, pathKey, samePath } from './lib/paths';
 
 const DEFAULT_ZOOM = 16;
 const MIN_ZOOM = 10;
 const MAX_ZOOM = 32;
 const DEFAULT_SIDEBAR_WIDTH = 280;
 
+function newWorkspace(dirPath: string, treeItems: FileTreeItem[]): Workspace {
+  return { dirPath, treeItems, selectedFile: null, fileType: null, content: null, error: null, stats: null };
+}
+
+// Return `tree` with the folder at `folderPath` given `children`.
+function withChildren(tree: FileTreeItem[], folderPath: string, children: FileTreeItem[]): FileTreeItem[] {
+  const target = pathKey(folderPath);
+  const visit = (items: FileTreeItem[]): FileTreeItem[] =>
+    items.map((item) => {
+      if (pathKey(item.path) === target) return { ...item, children };
+      if (item.children && item.children.length > 0) return { ...item, children: visit(item.children) };
+      return item;
+    });
+  return visit(tree);
+}
+
+// Scan a folder plus every expanded folder beneath it, so trees reopen with
+// their expanded folders already populated. Parents are scanned before
+// children (shorter paths first) so each one has somewhere to attach.
+async function buildTree(dirPath: string, expanded: Record<string, boolean>): Promise<FileTreeItem[]> {
+  let tree = await rpc.request.scanDirectory({ dirPath });
+  const openDirs = Object.entries(expanded)
+    .filter(([p, open]) => open && isWithin(p, dirPath) && !samePath(p, dirPath))
+    .map(([p]) => p)
+    .sort((a, b) => a.length - b.length);
+  for (const sub of openDirs) {
+    tree = withChildren(tree, sub, await rpc.request.scanDirectory({ dirPath: sub }));
+  }
+  return tree;
+}
+
 function App() {
   // Theme
   const { theme, toggleTheme } = useTheme();
 
-  // App state
-  const [currentDirectory, setCurrentDirectory] = useState<string | null>(null);
-  const [selectedFile, setSelectedFile] = useState<string | null>(null);
-  const [fileType, setFileType] = useState<FileType>(null);
-  const [fileContent, setFileContent] = useState<string | null>(null);
-  const [fileError, setFileError] = useState<string | null>(null);
-  const [fileStats, setFileStats] = useState<{ size: number; modified: string } | null>(null);
-  const [treeItems, setTreeItems] = useState<FileTreeItem[]>([]);
+  // Open folders (tabs), each with its own tree and open file
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [activeDir, setActiveDir] = useState<string | null>(null);
+  // Folder expansion, keyed by absolute path — shared by every tab's tree.
   const [expandedState, setExpandedState] = useState<Record<string, boolean>>({});
   const prevExpandedStateRef = useRef<Record<string, boolean>>({});
+  // Don't save the tab list until the saved one has been restored.
+  const workspacesLoadedRef = useRef(false);
+
+  // Latest values for callbacks that shouldn't re-subscribe on every change.
+  const workspacesRef = useRef(workspaces);
+  workspacesRef.current = workspaces;
+  const activeDirRef = useRef(activeDir);
+  activeDirRef.current = activeDir;
+
+  const active = workspaces.find((w) => w.dirPath === activeDir) ?? null;
 
   // UI state
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -59,102 +97,151 @@ function App() {
     return () => clearTimeout(timer);
   }, [zoom]);
 
-  // Load last directory on mount
+  const updateWorkspace = useCallback((dirPath: string, patch: Partial<Workspace>) => {
+    setWorkspaces((prev) => prev.map((w) => (w.dirPath === dirPath ? { ...w, ...patch } : w)));
+  }, []);
+
+  // Restore the folders that were open last time
   useEffect(() => {
-    const loadLastDirectory = async () => {
+    const restore = async () => {
       try {
-        const lastDir = await rpc.request.getLastDirectory({});
-        const expanded = await rpc.request.getExpandedState({});
-
-        if (lastDir) {
-          setCurrentDirectory(lastDir);
-          const items = await rpc.request.scanDirectory({ dirPath: lastDir });
-          setTreeItems(items);
-
-          // Scan expanded folders
-          if (expanded && Object.keys(expanded).length > 0) {
-            const expandedDirs = Object.entries(expanded)
-              .filter(([_, v]) => v)
-              .map(([k]) => k);
-
-            for (const dirPath of expandedDirs) {
-              await scanDirPath(dirPath);
-            }
-
-            setExpandedState(expanded);
-            prevExpandedStateRef.current = { ...expanded };
-          }
-        }
+        const [{ directories, active: savedActive }, expanded] = await Promise.all([
+          rpc.request.getWorkspaces({}),
+          rpc.request.getExpandedState({}),
+        ]);
+        const restored = await Promise.all(
+          directories.map(async (dirPath) => newWorkspace(dirPath, await buildTree(dirPath, expanded)))
+        );
+        setExpandedState(expanded);
+        prevExpandedStateRef.current = { ...expanded };
+        // Keep any folder the user opened while this was loading.
+        setWorkspaces((prev) => [
+          ...restored,
+          ...prev.filter((w) => !restored.some((r) => samePath(r.dirPath, w.dirPath))),
+        ]);
+        setActiveDir((prev) => prev ?? savedActive);
       } catch (error) {
-        console.error('Failed to load last directory:', error);
+        console.error('Failed to restore open folders:', error);
+      } finally {
+        workspacesLoadedRef.current = true;
       }
     };
 
-    loadLastDirectory();
+    restore();
   }, []);
+
+  // Save the open folders and the active one
+  const directoriesKey = workspaces.map((w) => w.dirPath).join('\n');
+  useEffect(() => {
+    if (!workspacesLoadedRef.current) return;
+    rpc.request
+      .setWorkspaces({ directories: workspacesRef.current.map((w) => w.dirPath), active: activeDir })
+      .catch((error) => console.error('Failed to save open folders:', error));
+  }, [directoriesKey, activeDir]);
 
   // Handle directory browsing — fire-and-forget to avoid RPC drop during dialog
   const handleBrowseDirectory = useCallback(() => {
     rpc.send.openDirectoryDialog({});
   }, []);
 
+  // Most recently requested file per tab, so a slow read for a file the user
+  // has since navigated away from doesn't overwrite the current one.
+  const latestFileRef = useRef(new Map<string, string>());
+
+  // Read a file's content and stats into its tab. Existing content stays on
+  // screen until the new read completes, so refreshes don't flash or lose scroll.
+  const loadFile = useCallback(async (dirPath: string, path: string) => {
+    latestFileRef.current.set(dirPath, path);
+    const isCurrent = () => latestFileRef.current.get(dirPath) === path;
+    try {
+      const result = await rpc.request.readFile({ filePath: path });
+      if (!isCurrent()) return;
+      updateWorkspace(
+        dirPath,
+        result.error ? { error: result.error, content: null } : { error: null, content: result.content }
+      );
+
+      const stats = await rpc.request.getFileStats({ filePath: path });
+      if (!isCurrent()) return;
+      if (!stats.error) {
+        updateWorkspace(dirPath, { stats: { size: stats.size, modified: stats.modified } });
+      }
+    } catch (error) {
+      if (!isCurrent()) return;
+      updateWorkspace(dirPath, { error: `Failed to read file: ${(error as Error).message}`, content: null });
+    }
+  }, [updateWorkspace]);
+
+  // Open a folder in a new tab, or switch to it if it's already open.
+  const openWorkspace = useCallback(async (dirPath: string) => {
+    const existing = workspacesRef.current.find((w) => samePath(w.dirPath, dirPath));
+    if (existing) {
+      setActiveDir(existing.dirPath);
+      return;
+    }
+    const tree = await buildTree(dirPath, prevExpandedStateRef.current);
+    setWorkspaces((prev) =>
+      prev.some((w) => samePath(w.dirPath, dirPath)) ? prev : [...prev, newWorkspace(dirPath, tree)]
+    );
+    setActiveDir(dirPath);
+  }, []);
+
   // Handle directory selected (pushed from bun after dialog closes)
   useEffect(() => {
-    const handler = async (e: Event) => {
+    const handler = (e: Event) => {
       const { dirPath } = (e as CustomEvent<{ dirPath: string | null }>).detail;
-      if (!dirPath) return;
-      setCurrentDirectory(dirPath);
-      setSelectedFile(null);
-      setFileContent(null);
-      setFileError(null);
-      setFileStats(null);
-      setExpandedState({});
-      prevExpandedStateRef.current = {};
-      const items = await rpc.request.scanDirectory({ dirPath });
-      setTreeItems(items);
+      if (dirPath) void openWorkspace(dirPath);
     };
     window.addEventListener("directorySelected", handler);
     return () => window.removeEventListener("directorySelected", handler);
-  }, []);
+  }, [openWorkspace]);
 
-  // Path of the most recently requested file, so a slow read for a file the
-  // user has since navigated away from doesn't overwrite the current one.
-  const latestFileRef = useRef<string | null>(null);
+  // Switch tabs; re-read the tab's open file in case it changed on disk.
+  const selectWorkspace = useCallback((dirPath: string) => {
+    if (dirPath === activeDirRef.current) return;
+    setActiveDir(dirPath);
+    const ws = workspacesRef.current.find((w) => w.dirPath === dirPath);
+    if (ws?.selectedFile) void loadFile(dirPath, ws.selectedFile);
+  }, [loadFile]);
 
-  // Read a file's content and stats into state. Existing content stays on
-  // screen until the new read completes, so refreshes don't flash or lose scroll.
-  const loadFile = useCallback(async (path: string) => {
-    latestFileRef.current = path;
-    try {
-      const result = await rpc.request.readFile({ filePath: path });
-      if (latestFileRef.current !== path) return;
-      if (result.error) {
-        setFileError(result.error);
-        setFileContent(null);
-      } else {
-        setFileError(null);
-        setFileContent(result.content);
-      }
-
-      const stats = await rpc.request.getFileStats({ filePath: path });
-      if (latestFileRef.current !== path) return;
-      if (!stats.error) {
-        setFileStats({ size: stats.size, modified: stats.modified });
-      }
-    } catch (error) {
-      if (latestFileRef.current !== path) return;
-      setFileError(`Failed to read file: ${(error as Error).message}`);
-      setFileContent(null);
+  const closeWorkspace = useCallback((dirPath: string) => {
+    const list = workspacesRef.current;
+    const index = list.findIndex((w) => w.dirPath === dirPath);
+    if (index < 0) return;
+    const remaining = list.filter((_, i) => i !== index);
+    setWorkspaces(remaining);
+    latestFileRef.current.delete(dirPath);
+    if (activeDirRef.current === dirPath) {
+      // Activate the tab that slides into this position, or the new last one.
+      const next = remaining[Math.min(index, remaining.length - 1)];
+      setActiveDir(next?.dirPath ?? null);
+      if (next?.selectedFile) void loadFile(next.dirPath, next.selectedFile);
     }
-  }, []);
+  }, [loadFile]);
+
+  const cycleWorkspace = useCallback((delta: 1 | -1) => {
+    const list = workspacesRef.current;
+    if (list.length < 2) return;
+    const index = list.findIndex((w) => w.dirPath === activeDirRef.current);
+    const next = list[(index + delta + list.length) % list.length];
+    if (next) selectWorkspace(next.dirPath);
+  }, [selectWorkspace]);
+
+  const selectWorkspaceAt = useCallback((index: number) => {
+    const list = workspacesRef.current;
+    const ws = index < 0 ? list[list.length - 1] : list[index];
+    if (ws) selectWorkspace(ws.dirPath);
+  }, [selectWorkspace]);
+
+  const closeActiveWorkspace = useCallback(() => {
+    if (activeDirRef.current) closeWorkspace(activeDirRef.current);
+  }, [closeWorkspace]);
 
   // Handle file selection
-  const handleSelectFile = useCallback(async (path: string, type: 'markdown' | 'mermaid' | 'svg') => {
-    setSelectedFile(path);
-    setFileType(type);
-    setFileError(null);
-    await loadFile(path);
-  }, [loadFile]);
+  const handleSelectFile = useCallback(async (dirPath: string, path: string, type: ViewableFileType) => {
+    updateWorkspace(dirPath, { selectedFile: path, fileType: type, error: null });
+    await loadFile(dirPath, path);
+  }, [updateWorkspace, loadFile]);
 
   // Handle zoom
   const handleZoomIn = useCallback(() => {
@@ -169,70 +256,46 @@ function App() {
     setZoom(DEFAULT_ZOOM);
   }, []);
 
-  const scanDirPath = useCallback(async (dirPath: string) => {
+  // Load a folder's contents (and its expanded descendants) into every tab
+  // whose tree contains it.
+  const scanDirPath = useCallback(async (dirPath: string, expanded: Record<string, boolean>) => {
     try {
-      const items = await rpc.request.scanDirectory({ dirPath });
-
-      if (items.length > 0) {
-        setTreeItems(prevItems => {
-          const cloneTree = (items: FileTreeItem[]): FileTreeItem[] => {
-            return items.map(item => ({
-              ...item,
-              children: item.children ? cloneTree(item.children) : [],
-            }));
-          };
-          const newItems = cloneTree(prevItems);
-          const normalizePath = (p: string) => p.replace(/\\/g, '/').toLowerCase();
-          const normalizedTarget = normalizePath(dirPath);
-
-          const addToTree = (tree: FileTreeItem[], targetPath: string, children: FileTreeItem[]): boolean => {
-            for (const item of tree) {
-              if (normalizePath(item.path) === targetPath) {
-                item.children = children;
-                return true;
-              }
-              if (item.children && item.children.length > 0) {
-                if (addToTree(item.children, targetPath, children)) return true;
-              }
-            }
-            return false;
-          };
-
-          addToTree(newItems, normalizedTarget, items);
-          return newItems;
-        });
-      }
+      const children = await buildTree(dirPath, expanded);
+      setWorkspaces((prev) =>
+        prev.map((ws) =>
+          isWithin(dirPath, ws.dirPath) && !samePath(dirPath, ws.dirPath)
+            ? { ...ws, treeItems: withChildren(ws.treeItems, dirPath, children) }
+            : ws
+        )
+      );
     } catch (error) {
       console.error('Failed to scan subdirectory:', error);
     }
   }, []);
 
-  // Handle directory refresh — rescan current directory and all expanded subdirs
+  // Handle directory refresh — rescan the active folder and its expanded subdirs
   const handleRefreshDirectory = useCallback(async () => {
-    if (!currentDirectory) return;
-    const items = await rpc.request.scanDirectory({ dirPath: currentDirectory });
-    setTreeItems(items);
-
-    const expandedDirs = Object.entries(expandedState)
-      .filter(([_, v]) => v)
-      .map(([k]) => k);
-
-    for (const dirPath of expandedDirs) {
-      await scanDirPath(dirPath);
+    const dirPath = activeDirRef.current;
+    if (!dirPath) return;
+    try {
+      const tree = await buildTree(dirPath, prevExpandedStateRef.current);
+      updateWorkspace(dirPath, { treeItems: tree });
+    } catch (error) {
+      console.error('Failed to refresh directory:', error);
     }
-  }, [currentDirectory, expandedState, scanDirPath]);
+  }, [updateWorkspace]);
 
   // Viewer-toolbar refresh: re-read the open file from disk.
   const [refreshing, setRefreshing] = useState(false);
   const handleRefreshFile = useCallback(async () => {
-    if (!selectedFile) return;
+    if (!active?.selectedFile) return;
     setRefreshing(true);
     try {
-      await loadFile(selectedFile);
+      await loadFile(active.dirPath, active.selectedFile);
     } finally {
       setRefreshing(false);
     }
-  }, [selectedFile, loadFile]);
+  }, [active?.dirPath, active?.selectedFile, loadFile]);
 
   // Handle expanded state change
   const handleExpandStateChange = useCallback(async (state: Record<string, boolean>) => {
@@ -245,7 +308,7 @@ function App() {
     await rpc.request.setExpandedState({ state });
 
     for (const [dirPath] of newlyExpanded) {
-      await scanDirPath(dirPath);
+      await scanDirPath(dirPath, state);
     }
   }, [scanDirPath]);
 
@@ -258,6 +321,9 @@ function App() {
     onZoomOut: handleZoomOut,
     onZoomReset: handleZoomReset,
     onRefresh: handleRefreshFile,
+    onCloseTab: closeActiveWorkspace,
+    onCycleTab: cycleWorkspace,
+    onSelectTab: selectWorkspaceAt,
   });
 
   return (
@@ -268,7 +334,10 @@ function App() {
         tocOpen={tocOpen}
         onBrowseDirectory={handleBrowseDirectory}
         onRefreshDirectory={handleRefreshDirectory}
-        selectedFile={selectedFile}
+        tabs={workspaces}
+        activeDir={activeDir}
+        onSelectWorkspace={selectWorkspace}
+        onCloseWorkspace={closeWorkspace}
         theme={theme}
         onToggleTheme={toggleTheme}
       />
@@ -277,9 +346,8 @@ function App() {
         <Sidebar
           isOpen={sidebarOpen}
           width={sidebarWidth}
-          currentDirectory={currentDirectory}
-          treeItems={treeItems}
-          selectedFile={selectedFile}
+          workspaces={workspaces}
+          activeDir={activeDir}
           expandedState={expandedState}
           onBrowse={handleBrowseDirectory}
           onRefresh={handleRefreshDirectory}
@@ -289,10 +357,10 @@ function App() {
         />
         <div className="flex-1 overflow-hidden">
           <Viewer
-            filePath={selectedFile}
-            fileType={fileType}
-            content={fileContent}
-            error={fileError}
+            filePath={active?.selectedFile ?? null}
+            fileType={active?.fileType ?? null}
+            content={active?.content ?? null}
+            error={active?.error ?? null}
             zoom={zoom}
             onZoomChange={setZoom}
             tocOpen={tocOpen}
@@ -302,10 +370,10 @@ function App() {
         </div>
       </div>
       <StatusBar
-        filePath={selectedFile}
-        fileSize={fileStats?.size ?? null}
-        fileModified={fileStats?.modified ?? null}
-        fileType={fileType}
+        filePath={active?.selectedFile ?? null}
+        fileSize={active?.stats?.size ?? null}
+        fileModified={active?.stats?.modified ?? null}
+        fileType={active?.fileType ?? null}
       />
     </div>
   );

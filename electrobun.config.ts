@@ -1,5 +1,9 @@
 import type { ElectrobunConfig } from "electrobun";
 
+// The CLI honours build.watchIgnore (see node_modules/electrobun/src/cli/index.ts)
+// but the published ElectrobunConfig type doesn't declare it yet.
+type Config = ElectrobunConfig & { build?: { watchIgnore?: string[] } };
+
 export default {
   app: {
     name: "Structured Text Viewer",
@@ -35,4 +39,4 @@ export default {
   scripts: {
     postBuild: "./scripts/post-build.ts",
   },
-} satisfies ElectrobunConfig;
+} satisfies Config;

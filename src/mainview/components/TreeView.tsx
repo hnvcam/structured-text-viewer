@@ -1,29 +1,31 @@
 import { Tree, NodeApi, TreeApi } from 'react-arborist';
-import { FileText, FileCode, FileImage, ChevronRight, FolderOpen } from 'lucide-react';
+import { FileText, FileCode, FileImage, ChevronRight, FolderOpen, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { FileTreeItem } from '@/types';
+import { FileTreeItem, ViewableFileType } from '@/types';
 import { useCallback, useRef, useState, useEffect } from 'react';
 
 interface TreeViewProps {
   items: FileTreeItem[];
   selectedFile: string | null;
-  onSelectFile: (path: string, type: 'markdown' | 'mermaid' | 'svg') => void;
+  onSelectFile: (path: string, type: ViewableFileType) => void;
   expandedState: Record<string, boolean>;
   onExpandStateChange: (state: Record<string, boolean>) => void;
 }
 
 type TreeNode = FileTreeItem;
 
-function FileIcon({ type }: { type: 'folder' | 'markdown' | 'mermaid' | 'svg' }) {
+export function FileIcon({ type, className = 'h-4 w-4' }: { type: FileTreeItem['type']; className?: string }) {
   switch (type) {
     case 'folder':
-      return <FolderOpen className="h-4 w-4 text-yellow-500" />;
+      return <FolderOpen className={cn(className, 'text-yellow-500')} />;
     case 'markdown':
-      return <FileText className="h-4 w-4 text-blue-500" />;
+      return <FileText className={cn(className, 'text-blue-500')} />;
     case 'mermaid':
-      return <FileCode className="h-4 w-4 text-purple-500" />;
+      return <FileCode className={cn(className, 'text-purple-500')} />;
     case 'svg':
-      return <FileImage className="h-4 w-4 text-green-500" />;
+      return <FileImage className={cn(className, 'text-green-500')} />;
+    case 'html':
+      return <Globe className={cn(className, 'text-orange-500')} />;
   }
 }
 
@@ -112,7 +114,7 @@ export function TreeView({
       if (selection.length > 0) {
         const node = selection[0];
         if (node && node.data.type !== 'folder') {
-          onSelectFile(node.data.path, node.data.type as 'markdown' | 'mermaid' | 'svg');
+          onSelectFile(node.data.path, node.data.type as ViewableFileType);
         }
       }
     },
