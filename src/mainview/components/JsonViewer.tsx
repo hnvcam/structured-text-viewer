@@ -35,6 +35,8 @@ const ROOT_PATH = '$';
 const INDENT = 1.25;
 // Width of the expand/collapse gutter in front of every row, in em.
 const GUTTER = 1.25;
+// Width of the left column holding a node's expand-all / collapse-all buttons.
+const ACTIONS = 2.75;
 // Initial expansion opens levels until roughly this many rows are visible.
 const INITIAL_ROW_BUDGET = 1500;
 const MAX_INITIAL_DEPTH = 3;
@@ -132,6 +134,17 @@ function isOpenIn(exp: Expansion, path: string, depth: number): boolean {
 interface TreeContextValue {
   expansion: Expansion;
   toggle: (path: string, depth: number, value: JsonValue, recursive: boolean) => void;
+  // Expand: open the node and everything inside it. Collapse: keep the node
+  // open but fold everything inside it, leaving a one-line row per child.
+  setSubtree: (path: string, value: JsonValue, expand: boolean) => void;
+  // Extra indent levels before the root (1 inside a JSONP callback call).
+  baseIndent: number;
+}
+
+// True if a container holds at least one non-empty object/array, i.e. it has
+// nested levels for expand-all / collapse-all to act on.
+function hasNestedLevels(items: [Key, JsonValue][]): boolean {
+  return items.some(([, v]) => isContainer(v) && (Array.isArray(v) ? v.length > 0 : Object.keys(v).length > 0));
 }
 
 const TreeContext = createContext<TreeContextValue | null>(null);
@@ -168,14 +181,43 @@ interface RowProps {
   // Value/path copied by the hover actions; omitted for closing-bracket rows.
   value?: JsonValue;
   path?: string;
+  // Expand-all / collapse-all for the node's subtree, shown in the left column.
+  onSubtree?: (expand: boolean) => void;
 }
 
-function Row({ depth, children, open, onToggle, value, path }: RowProps) {
+function SubtreeButton({ expand, onClick }: { expand: boolean; onClick: () => void }) {
+  const Icon = expand ? ChevronsUpDown : ChevronsDownUp;
+  const title = expand ? 'Expand all inside' : 'Collapse all inside';
+  return (
+    <button
+      type="button"
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      className="flex h-[1.5em] w-[1.25em] items-center justify-center rounded-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+    >
+      <Icon className="h-[0.85em] w-[0.85em]" />
+    </button>
+  );
+}
+
+function Row({ depth, children, open, onToggle, value, path, onSubtree }: RowProps) {
+  const { baseIndent } = useContext(TreeContext)!;
+  const indent = ACTIONS + (baseIndent + depth) * INDENT;
   return (
     <div
       className="group relative rounded-sm pr-14 hover:bg-accent/40"
-      style={{ paddingLeft: `${depth * INDENT + GUTTER}em` }}
+      style={{ paddingLeft: `${indent + GUTTER}em` }}
     >
+      {onSubtree && (
+        <span
+          data-search-skip
+          className="absolute left-0 top-0 flex opacity-40 transition-opacity group-hover:opacity-100"
+        >
+          <SubtreeButton expand onClick={() => onSubtree(true)} />
+          <SubtreeButton expand={false} onClick={() => onSubtree(false)} />
+        </span>
+      )}
       {onToggle && (
         <button
           type="button"
@@ -183,7 +225,7 @@ function Row({ depth, children, open, onToggle, value, path }: RowProps) {
           onClick={(e) => onToggle(e.altKey || e.shiftKey)}
           title={`${open ? 'Collapse' : 'Expand'} (Alt+click: ${open ? 'collapse' : 'expand'} all nested)`}
           className="absolute top-0 flex h-[1.5em] items-center justify-center text-muted-foreground hover:text-foreground"
-          style={{ left: `${depth * INDENT}em`, width: `${GUTTER}em` }}
+          style={{ left: `${indent}em`, width: `${GUTTER}em` }}
         >
           <ChevronRight className={cn('h-[0.9em] w-[0.9em] transition-transform', open && 'rotate-90')} />
         </button>
@@ -274,11 +316,12 @@ function JsonNode({ label, value, path, depth, isLast }: JsonNodeProps) {
 
   const open = isOpenIn(ctx.expansion, path, depth);
   const onToggle = (recursive: boolean) => ctx.toggle(path, depth, value, recursive);
+  const onSubtree = hasNestedLevels(items) ? (expand: boolean) => ctx.setSubtree(path, value, expand) : undefined;
   const summary = `${items.length} ${isArray ? (items.length === 1 ? 'item' : 'items') : items.length === 1 ? 'key' : 'keys'}`;
 
   if (!open) {
     return (
-      <Row depth={depth} open={false} onToggle={onToggle} value={value} path={path}>
+      <Row depth={depth} open={false} onToggle={onToggle} value={value} path={path} onSubtree={onSubtree}>
         <KeyLabel label={label} />
         <span className={punct}>{openBr}</span>
         <button
@@ -301,7 +344,7 @@ function JsonNode({ label, value, path, depth, isLast }: JsonNodeProps) {
 
   return (
     <>
-      <Row depth={depth} open onToggle={onToggle} value={value} path={path}>
+      <Row depth={depth} open onToggle={onToggle} value={value} path={path} onSubtree={onSubtree}>
         <KeyLabel label={label} />
         <span className={punct}>{openBr}</span>
       </Row>
@@ -376,6 +419,14 @@ export function JsonViewer({ content, zoom, onZoomChange, onRefresh, refreshing 
     });
   }, []);
 
+  const setSubtree = useCallback((path: string, value: JsonValue, expand: boolean) => {
+    setExpansion((prev) => {
+      const overrides = new Map(prev.overrides);
+      walkContainers(value, path, (p) => overrides.set(p, expand || p === path));
+      return { ...prev, overrides };
+    });
+  }, []);
+
   const expandAll = () => setExpansion({ defaultDepth: Infinity, overrides: new Map() });
   const collapseAll = () => setExpansion({ defaultDepth: 1, overrides: new Map() });
 
@@ -399,7 +450,11 @@ export function JsonViewer({ content, zoom, onZoomChange, onRefresh, refreshing 
     [root, parsed.error]
   );
 
-  const treeContext = useMemo(() => ({ expansion, toggle }), [expansion, toggle]);
+  const baseIndent = parsed.callback !== null ? 1 : 0;
+  const treeContext = useMemo(
+    () => ({ expansion, toggle, setSubtree, baseIndent }),
+    [expansion, toggle, setSubtree, baseIndent]
+  );
 
   const handleWheel = (e: React.WheelEvent) => {
     if (e.ctrlKey) {
@@ -481,19 +536,17 @@ export function JsonViewer({ content, zoom, onZoomChange, onRefresh, refreshing 
         ) : (
           <div ref={contentRef} className="font-mono" style={{ lineHeight: 1.5 }}>
             {parsed.callback !== null && (
-              <div style={{ paddingLeft: `${GUTTER}em` }}>
+              <div style={{ paddingLeft: `${ACTIONS + GUTTER}em` }}>
                 <span className="text-sky-700 dark:text-sky-300">{parsed.callback}</span>
                 <span className={punct}>(</span>
               </div>
             )}
-            {/* A JSONP payload is indented one level inside its callback call. */}
-            <div style={{ paddingLeft: parsed.callback !== null ? `${INDENT}em` : undefined }}>
-              <TreeContext.Provider value={treeContext}>
-                <JsonNode label={null} value={root} path={ROOT_PATH} depth={0} isLast />
-              </TreeContext.Provider>
-            </div>
+            {/* A JSONP payload is indented one level (baseIndent) inside its callback call. */}
+            <TreeContext.Provider value={treeContext}>
+              <JsonNode label={null} value={root} path={ROOT_PATH} depth={0} isLast />
+            </TreeContext.Provider>
             {parsed.callback !== null && (
-              <div className={punct} style={{ paddingLeft: `${GUTTER}em` }}>
+              <div className={punct} style={{ paddingLeft: `${ACTIONS + GUTTER}em` }}>
                 );
               </div>
             )}
