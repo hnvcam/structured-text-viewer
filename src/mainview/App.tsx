@@ -14,6 +14,7 @@ const DEFAULT_ZOOM = 16;
 const MIN_ZOOM = 10;
 const MAX_ZOOM = 32;
 const DEFAULT_SIDEBAR_WIDTH = 280;
+const AUTO_REFRESH_MS = 15_000;
 
 function newWorkspace(dirPath: string, treeItems: FileTreeItem[]): Workspace {
   return { dirPath, treeItems, selectedFile: null, fileType: null, content: null, error: null, stats: null };
@@ -284,6 +285,68 @@ function App() {
       console.error('Failed to refresh directory:', error);
     }
   }, [updateWorkspace]);
+
+  // Auto-refresh the active tab's folder tree and open file every 15 seconds.
+  // A self-rescheduling timeout (rather than setInterval) means ticks never
+  // overlap even if a scan is slow, and there is only ever one pending timer,
+  // which the cleanup cancels. Nothing is written back unless it changed, so
+  // idle ticks don't re-render the viewer or reset its scroll position.
+  useEffect(() => {
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const tick = async () => {
+      const dirPath = activeDirRef.current;
+      // Skip while the window is hidden; the next visible tick catches up.
+      if (dirPath && !document.hidden) {
+        // Folder tree. If the user expands/collapses a folder mid-scan, drop
+        // this result rather than overwrite the tree they just changed.
+        try {
+          const expandedAtStart = prevExpandedStateRef.current;
+          const tree = await buildTree(dirPath, expandedAtStart);
+          const ws = workspacesRef.current.find((w) => w.dirPath === dirPath);
+          if (
+            !cancelled && ws && prevExpandedStateRef.current === expandedAtStart &&
+            JSON.stringify(tree) !== JSON.stringify(ws.treeItems)
+          ) {
+            updateWorkspace(dirPath, { treeItems: tree });
+          }
+        } catch (error) {
+          console.error('Auto-refresh: failed to rescan folder:', error);
+        }
+
+        // Open file — only re-read it if its size or mtime changed (or it's gone).
+        try {
+          const ws = workspacesRef.current.find((w) => w.dirPath === dirPath);
+          const filePath = ws?.selectedFile;
+          if (!cancelled && filePath) {
+            const stats = await rpc.request.getFileStats({ filePath });
+            const current = workspacesRef.current.find((w) => w.dirPath === dirPath);
+            // A missing file is reloaded once (to show the error), then left
+            // alone until it reappears.
+            const changed = stats.error
+              ? !current?.error
+              : !!current?.error ||
+                !current?.stats ||
+                current.stats.size !== stats.size ||
+                current.stats.modified !== stats.modified;
+            if (!cancelled && current?.selectedFile === filePath && changed) {
+              await loadFile(dirPath, filePath);
+            }
+          }
+        } catch (error) {
+          console.error('Auto-refresh: failed to check open file:', error);
+        }
+      }
+      if (!cancelled) timer = setTimeout(tick, AUTO_REFRESH_MS);
+    };
+
+    timer = setTimeout(tick, AUTO_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [loadFile, updateWorkspace]);
 
   // Viewer-toolbar refresh: re-read the open file from disk.
   const [refreshing, setRefreshing] = useState(false);
