@@ -3,6 +3,7 @@ import type { AppRPC, FileTreeItem } from "../shared/rpc";
 import path from "path";
 import fs from "fs";
 import { dlopen, FFIType } from "bun:ffi";
+import { BSON, EJSON, Long } from "bson";
 
 // Call before any window is created.
 // Try V2 (per-monitor, Windows 10 1703+) first, fall back to V1.
@@ -202,6 +203,43 @@ function resolveImage(markdownPath: string, src: string): { dataUrl?: string; er
   }
 }
 
+// Decode a .bson file to (relaxed) MongoDB Extended JSON text for the JSON
+// viewer. A file may hold several concatenated documents (mongodump output),
+// each prefixed by its int32 little-endian length; those become an array.
+// Relaxed Extended JSON writes every int64 as a plain number, which silently
+// rounds values beyond 2^53. Keep those exact as canonical {"$numberLong": "…"}.
+function preserveUnsafeLongs(value: unknown): unknown {
+  if (value instanceof Long) {
+    const safe = value.lessThanOrEqual(Number.MAX_SAFE_INTEGER) && value.greaterThanOrEqual(Number.MIN_SAFE_INTEGER);
+    return safe ? value : { $numberLong: value.toString() };
+  }
+  if (Array.isArray(value)) return value.map(preserveUnsafeLongs);
+  // Recurse into plain documents only; other BSON types serialize themselves.
+  if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value)) out[k] = preserveUnsafeLongs(v);
+    return out;
+  }
+  return value;
+}
+
+function bsonToJson(filePath: string): string {
+  const buf = fs.readFileSync(filePath);
+  const docs: unknown[] = [];
+  let offset = 0;
+  while (offset < buf.length) {
+    if (buf.length - offset < 5) throw new Error(`Truncated BSON document at byte ${offset}`);
+    const size = buf.readInt32LE(offset);
+    if (size < 5 || offset + size > buf.length) {
+      throw new Error(`Invalid BSON document length ${size} at byte ${offset}`);
+    }
+    docs.push(preserveUnsafeLongs(BSON.deserialize(buf.subarray(offset, offset + size), { promoteLongs: false })));
+    offset += size;
+  }
+  if (docs.length === 0) throw new Error("Empty BSON file");
+  return EJSON.stringify(docs.length === 1 ? docs[0] : docs, undefined, 2, { relaxed: true });
+}
+
 function scanDirectory(dirPath: string): FileTreeItem[] {
   const result: FileTreeItem[] = [];
   try {
@@ -220,14 +258,14 @@ function scanDirectory(dirPath: string): FileTreeItem[] {
       const fileName = entry.name;
       const lowerName = fileName.toLowerCase();
       const ext = path.extname(fileName).toLowerCase();
-      if (entry.isFile() && (lowerName.endsWith(".md") || lowerName.endsWith(".mmd") || lowerName.endsWith(".svg") || lowerName.endsWith(".html") || lowerName.endsWith(".htm"))) {
+      if (entry.isFile() && (lowerName.endsWith(".md") || lowerName.endsWith(".mmd") || lowerName.endsWith(".svg") || lowerName.endsWith(".html") || lowerName.endsWith(".htm") || lowerName.endsWith(".json") || lowerName.endsWith(".jsonp") || lowerName.endsWith(".bson"))) {
         const fullPath = path.join(dirPath, fileName);
         try {
           fs.accessSync(fullPath, fs.constants.R_OK);
           result.push({
             id: fullPath,
             name: fileName,
-            type: ext === ".md" ? "markdown" : ext === ".svg" ? "svg" : (ext === ".html" || ext === ".htm") ? "html" : "mermaid",
+            type: ext === ".md" ? "markdown" : ext === ".svg" ? "svg" : (ext === ".html" || ext === ".htm") ? "html" : (ext === ".json" || ext === ".jsonp" || ext === ".bson") ? "json" : "mermaid",
             path: fullPath,
           });
         } catch {
@@ -251,6 +289,13 @@ const rpc = BrowserView.defineRPC<AppRPC>({
       setWorkspaces: ({ directories, active }) => { setWorkspaces(directories, active); },
       readFile: ({ filePath }) => {
         try {
+          if (filePath.toLowerCase().endsWith(".bson")) {
+            try {
+              return { content: bsonToJson(filePath) };
+            } catch (error) {
+              return { content: "", error: `Failed to decode BSON: ${(error as Error).message}` };
+            }
+          }
           const content = fs.readFileSync(filePath, "utf-8");
           return { content };
         } catch (error) {

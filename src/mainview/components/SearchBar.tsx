@@ -19,11 +19,15 @@ interface SearchBarProps {
   scrollRef: RefObject<HTMLElement | null>;
   // Called whenever search moves the scroll position.
   onNavigate?: () => void;
+  // Called with the (debounced) query right before the DOM is searched, so a
+  // viewer can reveal hidden content (e.g. expand collapsed JSON nodes). Any
+  // DOM updates must be flushed synchronously (flushSync) to be searched.
+  onQueryChange?: (query: string) => void;
 }
 
 // Toolbar search field: highlights every match in the content and scrolls to
 // the current one. Enter / Shift+Enter step through matches, Escape clears.
-export function SearchBar({ contentRef, scrollRef, onNavigate }: SearchBarProps) {
+export function SearchBar({ contentRef, scrollRef, onNavigate, onQueryChange }: SearchBarProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
   const [ranges, setRanges] = useState<Range[]>([]);
@@ -45,10 +49,11 @@ export function SearchBar({ contentRef, scrollRef, onNavigate }: SearchBarProps)
     const t = setTimeout(() => {
       scrollPendingRef.current = query !== '';
       setCurrent(0);
+      onQueryChange?.(query);
       runSearch(query);
     }, 120);
     return () => clearTimeout(t);
-  }, [query, runSearch]);
+  }, [query, runSearch, onQueryChange]);
 
   // The rendered document keeps changing after mount (images load, mermaid
   // diagrams render, file reloads), which invalidates existing ranges. Re-scan

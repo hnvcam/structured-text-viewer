@@ -2,11 +2,13 @@ import { MarkdownViewer } from './MarkdownViewer';
 import { MermaidViewer } from './MermaidViewer';
 import { SvgViewer } from './SvgViewer';
 import { HtmlViewer } from './HtmlViewer';
+import { JsonViewer } from './JsonViewer';
+import type { FileType } from '@/types';
 import { FileText, AlertCircle } from 'lucide-react';
 
 interface ViewerProps {
   filePath: string | null;
-  fileType: 'markdown' | 'mermaid' | 'svg' | 'html' | null;
+  fileType: FileType;
   content: string | null;
   error: string | null;
   zoom: number;
@@ -35,7 +37,7 @@ export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange,
         <FileText className="h-24 w-24 opacity-20" />
         <div className="text-center">
           <h2 className="text-lg font-medium">No File Selected</h2>
-          <p className="mt-1 text-sm">Select a Markdown, Mermaid, SVG, or HTML file from the sidebar to view its content</p>
+          <p className="mt-1 text-sm">Select a Markdown, Mermaid, SVG, HTML, or JSON file from the sidebar to view its content</p>
         </div>
       </div>
     );
@@ -64,6 +66,20 @@ export function Viewer({ filePath, fileType, content, error, zoom, onZoomChange,
     return (
       <div key={viewerKey} className="h-full">
         <HtmlViewer content={content} onRefresh={onRefresh} refreshing={refreshing} />
+      </div>
+    );
+  }
+
+  if (fileType === 'json') {
+    return (
+      <div key={viewerKey} className="h-full">
+        <JsonViewer
+          content={content}
+          zoom={zoom}
+          onZoomChange={onZoomChange}
+          onRefresh={onRefresh}
+          refreshing={refreshing}
+        />
       </div>
     );
   }

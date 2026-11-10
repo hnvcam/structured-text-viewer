@@ -1,5 +1,5 @@
 import { Tree, NodeApi, TreeApi } from 'react-arborist';
-import { FileText, FileCode, FileImage, ChevronRight, FolderOpen, Globe } from 'lucide-react';
+import { FileText, FileCode, FileImage, FileJson, ChevronRight, FolderOpen, Globe } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { FileTreeItem, ViewableFileType } from '@/types';
 import { useCallback, useRef, useState, useEffect } from 'react';
@@ -26,6 +26,8 @@ export function FileIcon({ type, className = 'h-4 w-4' }: { type: FileTreeItem['
       return <FileImage className={cn(className, 'text-green-500')} />;
     case 'html':
       return <Globe className={cn(className, 'text-orange-500')} />;
+    case 'json':
+      return <FileJson className={cn(className, 'text-teal-500')} />;
   }
 }
 

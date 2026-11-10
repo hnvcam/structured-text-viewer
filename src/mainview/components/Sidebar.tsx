@@ -119,7 +119,7 @@ export function Sidebar({
               ) : (
                 <div className="flex h-full flex-col items-center justify-center gap-2 p-4 text-center text-muted-foreground">
                   <HardDrive className="h-8 w-8 opacity-50" />
-                  <p className="text-sm">No .md or .mmd files found</p>
+                  <p className="text-sm">No supported files found</p>
                 </div>
               )}
             </div>

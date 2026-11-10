@@ -1,7 +1,7 @@
 export interface FileTreeItem {
   id: string;
   name: string;
-  type: 'folder' | 'markdown' | 'mermaid' | 'svg' | 'html';
+  type: 'folder' | 'markdown' | 'mermaid' | 'svg' | 'html' | 'json';
   path: string;
   children?: FileTreeItem[];
 }

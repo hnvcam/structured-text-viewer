@@ -17,7 +17,7 @@ src/
     App.tsx             — Root React component
     index.html          — HTML template (Vite entry: <script src="./index.tsx">)
     index.css           — Tailwind source (@tailwind directives, imported in index.tsx)
-    components/         — TitleBar, Sidebar, TreeView, Viewer, MarkdownViewer, MermaidViewer, StatusBar
+    components/         — TitleBar, Sidebar, TreeView, Viewer, MarkdownViewer, MermaidViewer, JsonViewer (.json/.jsonp; .bson decoded to Extended JSON in bun readFile), StatusBar
     hooks/              — useTheme, useKeyboardShortcuts
     lib/utils.ts        — cn() (clsx + tailwind-merge)
     types/index.ts      — FileTreeItem, FileStats, AppState

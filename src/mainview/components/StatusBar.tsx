@@ -1,5 +1,5 @@
 import { FileType } from '@/types';
-import { FileText, FileCode, Folder } from 'lucide-react';
+import { FileText, FileCode, FileJson, Folder } from 'lucide-react';
 
 interface StatusBarProps {
   filePath: string | null;
@@ -35,6 +35,8 @@ export function StatusBar({ filePath, fileSize, fileModified, fileType }: Status
               <FileText className="h-3 w-3 flex-shrink-0" />
             ) : fileType === 'mermaid' ? (
               <FileCode className="h-3 w-3 flex-shrink-0" />
+            ) : fileType === 'json' ? (
+              <FileJson className="h-3 w-3 flex-shrink-0" />
             ) : (
               <Folder className="h-3 w-3 flex-shrink-0" />
             )}

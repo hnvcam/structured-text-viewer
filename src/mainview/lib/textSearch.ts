@@ -8,8 +8,9 @@ const BLOCK_SELECTOR =
   'p, li, h1, h2, h3, h4, h5, h6, pre, td, th, tr, blockquote, dt, dd, div, table, figure, foreignObject, text';
 
 // Text that is never visible as-is: styles/scripts, and KaTeX's MathML copy
-// (KaTeX renders an accessible MathML twin next to the visible HTML).
-const SKIP_SELECTOR = 'script, style, noscript, .katex-mathml';
+// (KaTeX renders an accessible MathML twin next to the visible HTML), and UI
+// chrome a viewer marks with data-search-skip (labels, counts, buttons).
+const SKIP_SELECTOR = 'script, style, noscript, .katex-mathml, [data-search-skip]';
 
 interface TextSegment {
   node: Text;
